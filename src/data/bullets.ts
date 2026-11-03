@@ -1,0 +1,28 @@
+// !! Library values are approximate and MUST be verified against manufacturer data (field "ok": false).
+// d = bullet diameter, inch; ref = test barrel length the bullet velocities are quoted for, inch; kv = velocity change per inch of barrel, m/s
+export interface Caliber{id:string;name:string;d:number;ref:number;kv:number}
+export interface Bullet{id:string;cal:string;name:string;gr:number;bc:number;m:'G1'|'G7';len:number;v:number;ok:boolean} // len inch, v m/s at Caliber.ref
+export const CALIBERS:Caliber[]=[
+{id:'223',name:'.223 Rem',d:.224,ref:24,kv:7.5},{id:'556',name:'5.56x45 NATO',d:.224,ref:20,kv:7.5},
+{id:'243',name:'.243 Win',d:.243,ref:24,kv:7.6},{id:'65cm',name:'6.5 Creedmoor',d:.264,ref:24,kv:7},
+{id:'270',name:'.270 Win',d:.277,ref:24,kv:7.6},{id:'7x64',name:'7x64',d:.284,ref:24,kv:7.6},{id:'308',name:'.308 Win',d:.308,ref:24,kv:6.5},
+{id:'762x39',name:'7.62x39',d:.311,ref:20,kv:4.5},{id:'762x54',name:'7.62x54R',d:.311,ref:28,kv:5},{id:'3006',name:'.30-06 Spr',d:.308,ref:24,kv:7},{id:'300wm',name:'.300 Win Mag',d:.308,ref:24,kv:9}]
+const B=(id:string,cal:string,name:string,gr:number,bc:number,m:'G1'|'G7',len:number,v:number):Bullet=>({id,cal,name,gr,bc,m,len,v,ok:false})
+export const BULLETS:Bullet[]=[
+B('223-fmj55','223','FMJ-BT 55 gr',55,.243,'G1',.74,990),B('223-vmax55','223','Hornady V-MAX 55 gr',55,.255,'G1',.76,988),
+B('223-fmj62','223','FMJ-BT 62 gr',62,.307,'G1',.91,930),B('223-smk69','223','Sierra MatchKing 69 gr',69,.301,'G1',.9,900),
+B('223-eldm73','223','Hornady ELD Match 73 gr',73,.2,'G7',1.0,850),B('223-bthp75','223','Hornady BTHP Match 75 gr',75,.395,'G1',.99,850),
+B('223-smk77','223','Sierra MatchKing 77 gr',77,.372,'G1',.99,830),
+B('556-m193','556','M193 55 gr FMJ-BT',55,.243,'G1',.74,990),B('556-m855','556','M855 / SS109 62 gr',62,.151,'G7',.91,945),
+B('556-m855a1','556','M855A1 62 gr EPR',62,.152,'G7',.97,960),B('556-mk262','556','Mk 262 Mod 1 77 gr OTM',77,.372,'G1',.99,840),
+B('243-sst95','243','Hornady SST 95 gr',95,.355,'G1',1.0,940),B('243-sbt100','243','Sierra GameKing 100 gr',100,.405,'G1',1.07,900),
+B('65-eldm140','65cm','Hornady ELD-M 140 gr',140,.326,'G7',1.37,825),B('65-eldx143','65cm','Hornady ELD-X 143 gr',143,.315,'G7',1.4,815),
+B('270-sst130','270','Hornady SST 130 gr',130,.449,'G1',1.2,930),B('270-pt150','270','Nosler Partition 150 gr',150,.465,'G1',1.3,860),
+B('7x64-sst139','7x64','Hornady SST 139 gr',139,.486,'G1',1.2,880),B('7x64-sst154','7x64','Hornady SST 154 gr',154,.525,'G1',1.3,820),
+B('308-sst150','308','Hornady SST 150 gr',150,.415,'G1',1.1,850),B('308-smk168','308','Sierra MatchKing 168 gr',168,.218,'G7',1.22,790),B('308-smk175','308','Sierra MatchKing 175 gr',175,.243,'G7',1.24,790),
+B('762x39-sp124','762x39','S&B SP 124 gr',124,.275,'G1',.95,710),
+B('54r-sgk180','762x54','Sierra GameKing 180 gr',180,.48,'G1',1.2,780),
+B('3006-sst150','3006','Hornady SST 150 gr',150,.415,'G1',1.1,890),B('3006-pt180','3006','Nosler Partition 180 gr',180,.474,'G1',1.3,790),
+B('300wm-eldx200','300wm','Hornady ELD-X 200 gr',200,.301,'G7',1.5,880)]
+/** Muzzle velocity (m/s) for a given barrel length (inch), scaled from the caliber's test barrel. */
+export const vFor=(b:Bullet,barrelIn:number)=>{const c=CALIBERS.find(x=>x.id===b.cal)!;return Math.round(b.v+(barrelIn-c.ref)*c.kv)}
