@@ -1,12 +1,12 @@
 import {useEffect,useMemo,useState} from 'react'
-import {solve,pressureFromAlt,stability} from './core/ballistics'
+import {solve,pressureFromAlt,stability,ptAt} from './core/ballistics'
 import {CALIBERS,BULLETS,vFor} from './data/bullets'
 import {dict,Key,Lang} from './i18n'
 import {Chart} from './Chart'
 import {GUNS,gunFor} from './Weapons'
 // barrel and twist are stored in inches, sight in mm, distances in m
-export interface S{mode:'lite'|'pro';cal:string;bullet:string;v0:number;barrel:number;twist:number;sight:number;zero:number;temp:number;atm:'alt'|'press';alt:number;press:number;wind:number;windDir:number;angle:number;step:number;real:boolean;lang:Lang;imp:boolean;open:boolean}
-const DEF:S={mode:'lite',cal:'223',bullet:'223-fmj55',v0:vFor(BULLETS[0],16),barrel:16,twist:7,sight:65,zero:100,temp:15,atm:'alt',alt:0,press:1013,wind:0,windDir:90,angle:0,step:50,real:true,lang:'uk',imp:false,open:true}
+export interface S{mode:'lite'|'pro';cal:string;bullet:string;v0:number;barrel:number;twist:number;sight:number;zero:number;temp:number;atm:'alt'|'press';alt:number;press:number;wind:number;windDir:number;angle:number;step:number;real:boolean;fixOn:boolean;fixD:number;lang:Lang;imp:boolean;open:boolean}
+const DEF:S={mode:'lite',cal:'223',bullet:'223-fmj55',v0:vFor(BULLETS[0],16),barrel:16,twist:7,sight:65,zero:100,temp:15,atm:'alt',alt:0,press:1013,wind:0,windDir:90,angle:0,step:50,real:true,fixOn:false,fixD:100,lang:'uk',imp:false,open:true}
 const KEY='ballistic3'
 const load=():S=>{try{const v={...DEF,...JSON.parse(localStorage.getItem(KEY)||'{}')};return STEPS.includes(v.step)?v:{...v,step:DEF.step}}catch{return DEF}}
 // Lite mode: standard atmosphere, still air, level shot — conditions that barely affect the result
@@ -31,6 +31,14 @@ export function App(){
   const far=Math.max(zero,...r.crossings),range=Math.max(100,Math.ceil(far*1.15/25)*25)
   return{...r,pts:r.pts.filter(q=>q.s<=range),range}
  },[s.v0,b,s.sight,zero,env.temp,env.press,env.wind,env.windDir,env.angle])
+ // fixed distance: a wall somewhere between the first zero and the end of the view; the trajectory stops on it
+ const fixMin=res&&res.crossings.length?Math.ceil(res.crossings[0]/5)*5:10,fixMax=res?.range??100
+ const fix=Math.min(Math.max(s.fixD,fixMin),fixMax)
+ const shown=useMemo(()=>{
+  if(!res||!s.fixOn)return res
+  const end=ptAt(res.pts,fix),pts=[...res.pts.filter(q=>q.s<fix),...(end?[end]:[])]
+  return{...res,pts,crossings:res.crossings.filter(c=>c<=fix),apex:pts.reduce((m,q)=>q.h>m.h?q:m,pts[0]),range:fix}
+ },[res,s.fixOn,fix])
  const sg=stability(b.gr,cal.d,b.len,s.twist,s.v0*3.28084,env.temp*1.8+32,env.press)
  // a caliber brings its typical rifle: barrel length and sight height follow it
  const pick=(cid:string)=>{const f=BULLETS.find(x=>x.cal===cid)!,g=GUNS[gunFor(cid)];p({cal:cid,bullet:f.id,barrel:g.barrel,sight:g.sight,v0:vFor(f,g.barrel)});setShot(n=>n+1)}
@@ -67,6 +75,9 @@ export function App(){
    <h2>{t('view')}</h2>
    <div className="mode vis"><button role="switch" aria-checked={s.real} className={s.real?'sw pro':'sw'} onClick={()=>p({real:!s.real})}><span className={s.real?'':'on'}>{t('schem')}</span><i/><span className={s.real?'on':''}>{t('real')}</span></button></div>
    <Slider label={t('step')} value={Math.max(0,STEPS.indexOf(s.step))} min={0} max={STEPS.length-1} step={1} unit="" fmt={i=>STEPS[i]+' '+dist} on={i=>p({step:STEPS[i]})}/>
+   <div className="f row"><span>{t('fixed')}</span><button role="switch" aria-checked={s.fixOn} aria-label={t('fixed')} className={s.fixOn?'sw pro':'sw'} onClick={()=>p({fixOn:!s.fixOn,fixD:fix})}><i/></button></div>
+   {s.fixOn&&(I?<Slider label={t('wall')} value={fix} min={fixMin} max={fixMax} step={5} k={1.09361} dmin={Math.ceil(fixMin*1.09361/5)*5} dmax={Math.floor(fixMax*1.09361/5)*5} unit="yd" alt={fix.toFixed(0)+' m'} on={v=>p({fixD:v})}/>
+   :<Slider label={t('wall')} value={fix} min={fixMin} max={fixMax} step={5} unit="m" alt={(fix*1.09361).toFixed(0)+' yd'} on={v=>p({fixD:v})}/>)}
    <p className="note">{t('hint')}</p>
    <button className="btn" onClick={()=>setShot(n=>n+1)}>{t('replay')}</button>
    <button className="btn" onClick={()=>setReset(n=>n+1)}>{t('reset')}</button>
@@ -76,5 +87,5 @@ export function App(){
    <button className={I?'':'on'} onClick={()=>p({imp:false})}>SI</button><button className={I?'on':''} onClick={()=>p({imp:true})}>IMP</button><span/>
    <button className={s.lang==='uk'?'on':''} onClick={()=>p({lang:'uk'})}>UA</button><button className={s.lang==='en'?'on':''} onClick={()=>p({lang:'en'})}>EN</button>
   </div>
-  <main>{res?<Chart res={res} s={s} t={t} shot={shot} reset={reset} range={res.range}/>:<p className="err">{t('cant')}</p>}</main>
+  <main>{shown?<Chart res={shown} s={s} t={t} shot={shot} reset={reset} range={shown.range} wall={s.fixOn?fix:null}/>:<p className="err">{t('cant')}</p>}</main>
  </div>}

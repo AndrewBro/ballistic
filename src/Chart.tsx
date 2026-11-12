@@ -9,7 +9,7 @@ import type {Key} from './i18n'
 // View: zoom factor over the fitted scale and the world point (m) at the centre of the plot.
 interface View{z:number;cx:number;cy:number}
 const NICE=[.01,.02,.05,.1,.2,.5,1,2,5,10,20,50,100,200]
-export function Chart({res,s,t,shot,reset,range}:{res:Result;s:S;t:(k:Key)=>string;shot:number;reset:number;range:number}){
+export function Chart({res,s,t,shot,reset,range,wall}:{res:Result;s:S;t:(k:Key)=>string;shot:number;reset:number;range:number;wall:number|null}){
  const box=useRef<HTMLDivElement>(null)
  const [sz,setSz]=useState({w:900,h:600}),[view,setView]=useState<View|null>(null),[mx,setMx]=useState<number|null>(null),[prog,setProg]=useState(0)
  const drag=useRef<{x:number;y:number;v:View}|null>(null)
@@ -17,7 +17,7 @@ export function Chart({res,s,t,shot,reset,range}:{res:Result;s:S;t:(k:Key)=>stri
  useEffect(()=>setView(null),[reset,s.real])
  useEffect(()=>{let r=0,t0=0;const f=(n:number)=>{t0||=n;const u=Math.min((n-t0)/3600,1);setProg(1-Math.pow(1-u,3));if(u<1)r=requestAnimationFrame(f)};r=requestAnimationFrame(f);return()=>cancelAnimationFrame(r)},[shot])
  // keep the top clear for the readout panel so it never covers the trajectory
- const {w,h}=sz,pl=24,pr=w-24,pt=200,pb=h-44,PW=pr-pl,PH=pb-pt
+ const {w,h}=sz,pl=24,pr=w-80,pt=200,pb=h-44,PW=pr-pl,PH=pb-pt
  const kd=s.imp?1.09361:1,kh=s.imp?39.3701:100,uh=s.imp?'in':'cm',ud=s.imp?'yd':'m'
  // world bounds: shooter + trajectory; the view never leaves them
  const hmax=Math.max(...res.pts.map(p=>p.h)),hmin=Math.min(...res.pts.map(p=>p.h))
@@ -39,6 +39,8 @@ export function Chart({res,s,t,shot,reset,range}:{res:Result;s:S;t:(k:Key)=>stri
  const stepU=s.step*kx/kd>PW/3?NICE.find(n=>n*kx/kd>=70)??s.step:s.step,stepM=stepU/kd,every=Math.max(1,Math.ceil(44/(stepM*kx)))
  const ticks:number[]=[];for(let n=Math.max(0,Math.ceil(inv(0)/stepM));n*stepM<=Math.min(inv(w),bx1)&&ticks.length<400;n++)ticks.push(n*stepM)
  const hp=mx!==null&&prog>=1&&!drag.current?ptAt(res.pts,Math.min(Math.max(inv(mx),0),range)):null
+ // with a wall, the readout stays pinned to the impact point unless the cursor points elsewhere
+ const hit=wall!==null&&prog>=1?res.pts[res.pts.length-1]:null,rp=hp??hit
  const bar=NICE.find(n=>n*k>=40)??200,barPx=bar*k
  const fmtBar=s.imp?(bar<1?(bar*39.3701).toFixed(bar<.05?1:0)+' in':(bar*3.28084).toFixed(bar<5?1:0)+' ft'):bar>=1?bar+' m':(bar*100).toFixed(0)+' cm'
  const onMove=(e:React.MouseEvent<SVGSVGElement>)=>{const px=e.nativeEvent.offsetX,py=e.nativeEvent.offsetY;setMx(px>=X(0)&&px<=X(range)?px:null)
@@ -60,8 +62,10 @@ export function Chart({res,s,t,shot,reset,range}:{res:Result;s:S;t:(k:Key)=>stri
   <line x1={X(0)+eyeX(gun,s.barrel)*ky} x2={X(range)} y1={Y(0)} y2={Y(0)} className="los"/>
   <path d={d} pathLength={1} className="traj" strokeDasharray="1" strokeDashoffset={1-prog}/>
   {res.crossings.filter(c=>c<=range).map(zl)}
-  {prog>=1&&<g><line x1={X(res.apex.s)} x2={X(res.apex.s)} y1={Y(0)} y2={Y(res.apex.h)} className="ap"/><circle cx={X(res.apex.s)} cy={Y(res.apex.h)} r="4" className="apc"/><text x={X(res.apex.s)} y={ay} className="lb at">{t('apexL')} +{(res.apex.h*kh).toFixed(1)}{uh} @ {(res.apex.s*kd).toFixed(0)}{ud}</text></g>}
+  {prog>=1&&res.apex.s<range-.5&&<g><line x1={X(res.apex.s)} x2={X(res.apex.s)} y1={Y(0)} y2={Y(res.apex.h)} className="ap"/><circle cx={X(res.apex.s)} cy={Y(res.apex.h)} r="4" className="apc"/><text x={X(res.apex.s)} y={ay} className="lb at">{t('apexL')} +{(res.apex.h*kh).toFixed(1)}{uh} @ {(res.apex.s*kd).toFixed(0)}{ud}</text></g>}
   {hp&&<g><line x1={X(hp.s)} x2={X(hp.s)} y1={0} y2={ya} className="cur"/><line x1={X(hp.s)} x2={X(hp.s)} y1={Y(0)} y2={Y(hp.h)} className="dh"/><circle cx={X(hp.s)} cy={Y(hp.h)} r="4" className="apc"/></g>}
+  {wall!==null&&<g><rect x={X(wall)} y={pt-20} width={6} height={Math.max(0,Y(GROUND)-pt+20)} className="wall"/>
+   {hit&&<><circle cx={X(wall)} cy={Y(hit.h)} r="5" fill="url(#gold)" className="bul"/><text x={X(wall)-10} y={Y(hit.h)+(hit.h>=0?-10:18)} className="lb tr hit">{hit.h>=0?'+':''}{(hit.h*kh).toFixed(1)}{uh} @ {(wall*kd).toFixed(0)}{ud}</text></>}</g>}
   {bp&&prog<1&&<circle cx={X(bp.s)} cy={Y(bp.h)} r="5" fill="url(#gold)" className="bul"/>}
   <g>{ticks.map((m,i)=><g key={'t'+i}><line x1={X(m)} x2={X(m)} y1={ya} y2={ya+(i%every?4:8)} className="axis"/>{i%every===0&&<text x={X(m)} y={ya+22} className="lb tk">{(m*kd).toFixed(0)}</text>}</g>)}
    <text x={Math.min(X(bx1),w-8)} y={ya+38} className="lb tr">{ud}</text></g>
@@ -69,5 +73,5 @@ export function Chart({res,s,t,shot,reset,range}:{res:Result;s:S;t:(k:Key)=>stri
    <text x={-10} y={barPx/2+4} className="lb tr">{fmtBar}</text></g>
   {ky/kx>1.05&&<text x={pl} y={22} className="lb cmp">{t('squeeze')} ×{(ky/kx).toFixed(ky/kx<10?1:0)}</text>}
  </svg>
- {hp&&<div className="tip"><div><span>{t('dist')}</span>{(hp.s*kd).toFixed(0)} {ud}</div><div><span>{t('h')}</span>{hp.h>=0?'+':''}{(hp.h*kh).toFixed(1)} {uh}</div><div><span>{t('spd')}</span>{(hp.v*(s.imp?3.28084:1)).toFixed(0)} {s.imp?'fps':'m/s'}</div><div><span>{t('time')}</span>{hp.t.toFixed(2)} s</div><div><span>{t('drift')}</span>{(hp.z*kh).toFixed(1)} {uh}</div></div>}
+ {rp&&<div className="tip"><div><span>{t('dist')}</span>{(rp.s*kd).toFixed(0)} {ud}</div><div><span>{t('h')}</span>{rp.h>=0?'+':''}{(rp.h*kh).toFixed(1)} {uh}</div><div><span>{t('spd')}</span>{(rp.v*(s.imp?3.28084:1)).toFixed(0)} {s.imp?'fps':'m/s'}</div><div><span>{t('time')}</span>{rp.t.toFixed(2)} s</div><div><span>{t('drift')}</span>{(rp.z*kh).toFixed(1)} {uh}</div></div>}
  </div>}
