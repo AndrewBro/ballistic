@@ -8,7 +8,7 @@ export const GUNS:Record<GunId,Gun>={
  bolt:{off:20.5,grip:[13.2,-3.4],fore:25,barrel:24,sight:40},
  ak:{off:17.7,grip:[10.9,-3.6],fore:22.5,barrel:16,sight:75},
  svd:{off:20.5,grip:[13.2,-3.9],fore:27,barrel:24,sight:70}}
-export const gunFor=(cal:string):GunId=>cal==='223'||cal==='556'?'ar15':cal==='308'?'ar10':cal==='762x39'?'ak':cal==='762x54'?'svd':'bolt'
+export const gunFor=(cal:string):GunId=>cal==='223'||cal==='556'||cal==='300blk'?'ar15':cal==='308'||cal==='762x51'?'ar10':cal==='762x39'?'ak':cal==='762x54'?'svd':'bolt'
 type G={barrelIn:number;c:number}
 /** Riflescope on rings or a mount block rising from `base`. */
 function Scope({x,len,c,obj,base,rings}:{x:number;len:number;c:number;obj:number;base:number;rings:[number,number]}){

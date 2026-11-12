@@ -6,7 +6,7 @@ import {Chart} from './Chart'
 import {GUNS,gunFor} from './Weapons'
 // barrel and twist are stored in inches, sight in mm, distances in m
 export interface S{mode:'lite'|'pro';cal:string;bullet:string;v0:number;barrel:number;twist:number;sight:number;zero:number;temp:number;atm:'alt'|'press';alt:number;press:number;wind:number;windDir:number;angle:number;step:number;real:boolean;fixOn:boolean;fixD:number;lang:Lang;imp:boolean;open:boolean}
-const DEF:S={mode:'lite',cal:'223',bullet:'223-fmj55',v0:vFor(BULLETS[0],16),barrel:16,twist:7,sight:65,zero:100,temp:15,atm:'alt',alt:0,press:1013,wind:0,windDir:90,angle:0,step:50,real:true,fixOn:false,fixD:100,lang:'uk',imp:false,open:true}
+const DEF:S={mode:'lite',cal:'223',bullet:'223-fmj55',v0:vFor(BULLETS.find(b=>b.id==='223-fmj55')!,16),barrel:16,twist:7,sight:65,zero:100,temp:15,atm:'alt',alt:0,press:1013,wind:0,windDir:90,angle:0,step:50,real:true,fixOn:false,fixD:100,lang:'uk',imp:false,open:true}
 const KEY='ballistic3'
 const load=():S=>{try{const v={...DEF,...JSON.parse(localStorage.getItem(KEY)||'{}')};return STEPS.includes(v.step)?v:{...v,step:DEF.step}}catch{return DEF}}
 // Lite mode: standard atmosphere, still air, level shot — conditions that barely affect the result
@@ -39,9 +39,10 @@ export function App(){
   const end=ptAt(res.pts,fix),pts=[...res.pts.filter(q=>q.s<fix),...(end?[end]:[])]
   return{...res,pts,crossings:res.crossings.filter(c=>c<=fix),apex:pts.reduce((m,q)=>q.h>m.h?q:m,pts[0]),range:fix}
  },[res,s.fixOn,fix])
- const sg=stability(b.gr,cal.d,b.len,s.twist,s.v0*3.28084,env.temp*1.8+32,env.press)
+ const twist=Math.min(Math.max(s.twist,cal.tw[0]),cal.tw[1])
+ const sg=stability(b.gr,cal.d,b.len,twist,s.v0*3.28084,env.temp*1.8+32,env.press)
  // a caliber brings its typical rifle: barrel length and sight height follow it
- const pick=(cid:string)=>{const f=BULLETS.find(x=>x.cal===cid)!,g=GUNS[gunFor(cid)];p({cal:cid,bullet:f.id,barrel:g.barrel,sight:g.sight,v0:vFor(f,g.barrel)});setShot(n=>n+1)}
+ const pick=(cid:string)=>{const f=BULLETS.find(x=>x.cal===cid)!,g=GUNS[gunFor(cid)],bl=CALIBERS.find(c=>c.id===cid)!.barrel??g.barrel;p({cal:cid,bullet:f.id,barrel:bl,twist:CALIBERS.find(c=>c.id===cid)!.tw[2],sight:g.sight,v0:vFor(f,bl)});setShot(n=>n+1)}
  const pickB=(id:string)=>{p({bullet:id,v0:vFor(BULLETS.find(x=>x.id===id)!,s.barrel)});setShot(n=>n+1)}
  const dist=I?'yd':'m',mm=(v:number)=>v.toFixed(0)+' mm',inch=(v:number,d=2)=>v.toFixed(d)+'″'
  return <div className="app">
@@ -50,7 +51,7 @@ export function App(){
    <h1>BALLISTIC<i>TRAJECTORY</i></h1>
    <h2>{t('weapon')}</h2>
    <Slider label={t('barrel')} value={s.barrel} min={6} max={30} step={.25} unit="" fmt={d=>inch(d)} alt={mm(s.barrel*25.4)} on={v=>p({barrel:v,v0:vFor(b,v)})}/>
-   <Slider label={t('twist')} value={s.twist} min={6} max={10} step={1} unit="" fmt={d=>'1:'+d.toFixed(0)+'″'} alt={'1:'+mm(s.twist*25.4)} on={v=>p({twist:v})}/>
+   <Slider label={t('twist')} value={twist} min={cal.tw[0]} max={cal.tw[1]} step={.5} unit="" fmt={d=>'1:'+d+'″'} alt={'1:'+mm(twist*25.4)} on={v=>p({twist:v})}/>
    <p className={'note '+(sg<1?'bad':sg<1.3?'warn':'ok')}>{t('stable')} Sg {sg.toFixed(2)}{sg<1?' — '+t('unstable'):sg<1.3?' — '+t('marginal'):''}</p>
    {I?<Slider label={t('sight')} value={s.sight} min={20} max={120} step={.05} k={1/25.4} dmin={.8} dmax={4.7} unit="" fmt={d=>inch(d)} alt={mm(s.sight)} on={v=>p({sight:v})}/>
    :<Slider label={t('sight')} value={s.sight} min={20} max={120} step={1} unit="mm" alt={inch(s.sight/25.4)} on={v=>p({sight:v})}/>}
