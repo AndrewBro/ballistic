@@ -29,7 +29,7 @@ function EOTech({x,c,rail}:{x:number;c:number;rail:number}){
   <circle cx={x+1.2} cy={c-.9} r={.18} className="pad"/><circle cx={x+2.6} cy={c-.9} r={.18} className="pad"/>
  </g>}
 function AR({barrelIn,c,big}:G&{big:boolean}){
- const off=big?20.5:19.2,mz=off+barrelIn,hg=Math.min(Math.max(barrelIn-3.5,4),15),rx=big?22.6:21.6,he=rx+hg
+ const off=big?20.5:19.2,mz=off+barrelIn,hg=Math.min(Math.max(barrelIn-3.5,2),15),rx=big?22.6:21.6,he=rx+hg
  const gas=barrelIn<=11?4:barrelIn<=16?7:barrelIn<=18?9:12,gb=off+gas
  return <g>
   <path d="M0,1.1 L0.6,1.25 L7,0.95 L7.4,0.7 L7.4,-0.7 L1.2,-4.2 L0.4,-4.4 L0,-4.2 Z"/>
@@ -75,7 +75,7 @@ function RedDot({x,c,base}:{x:number;c:number;base:number}){
   <rect x={x+2.2} y={c+.55} width={.9} height={.5} rx={.1}/>
  </g>}
 function AK({barrelIn,c}:G){
- const mz=17.7+barrelIn,gb=mz-5.5,he=Math.min(26.5,gb-.7)
+ const mz=17.7+barrelIn,gb=Math.max(mz-5.5,20.4),he=Math.min(26.5,gb-.7)
  return <g>
   <path d="M0,-1.1 L0,-5 Q0.2,-5.3 0.8,-5.15 L9.2,-1.8 L9.2,-0.4 L0.9,-0.85 Z"/>
   <rect x={-.35} y={-5.1} width={.4} height={4.1} rx={.1} className="pad"/>

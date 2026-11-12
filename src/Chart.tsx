@@ -16,8 +16,8 @@ export function Chart({res,s,t,shot,reset,range}:{res:Result;s:S;t:(k:Key)=>stri
  useEffect(()=>{const ro=new ResizeObserver(e=>setSz({w:e[0].contentRect.width,h:e[0].contentRect.height}));ro.observe(box.current!);return()=>ro.disconnect()},[])
  useEffect(()=>setView(null),[reset,s.real])
  useEffect(()=>{let r=0,t0=0;const f=(n:number)=>{t0||=n;const u=Math.min((n-t0)/3600,1);setProg(1-Math.pow(1-u,3));if(u<1)r=requestAnimationFrame(f)};r=requestAnimationFrame(f);return()=>cancelAnimationFrame(r)},[shot])
- // with hover on, keep the top clear for the readout panel so it never covers the trajectory
- const {w,h}=sz,pl=24,pr=w-24,pt=s.hover?200:40,pb=h-44,PW=pr-pl,PH=pb-pt
+ // keep the top clear for the readout panel so it never covers the trajectory
+ const {w,h}=sz,pl=24,pr=w-24,pt=200,pb=h-44,PW=pr-pl,PH=pb-pt
  const kd=s.imp?1.09361:1,kh=s.imp?39.3701:100,uh=s.imp?'in':'cm',ud=s.imp?'yd':'m'
  // world bounds: shooter + trajectory; the view never leaves them
  const hmax=Math.max(...res.pts.map(p=>p.h)),hmin=Math.min(...res.pts.map(p=>p.h))
@@ -38,7 +38,7 @@ export function Chart({res,s,t,shot,reset,range}:{res:Result;s:S;t:(k:Key)=>stri
  const ya=Math.min(Math.max(Y(GROUND),pt+10),h-46)
  const stepU=s.step*kx/kd>PW/3?NICE.find(n=>n*kx/kd>=70)??s.step:s.step,stepM=stepU/kd,every=Math.max(1,Math.ceil(44/(stepM*kx)))
  const ticks:number[]=[];for(let n=Math.max(0,Math.ceil(inv(0)/stepM));n*stepM<=Math.min(inv(w),bx1)&&ticks.length<400;n++)ticks.push(n*stepM)
- const hp=mx!==null&&s.hover&&prog>=1&&!drag.current?ptAt(res.pts,Math.min(Math.max(inv(mx),0),range)):null
+ const hp=mx!==null&&prog>=1&&!drag.current?ptAt(res.pts,Math.min(Math.max(inv(mx),0),range)):null
  const bar=NICE.find(n=>n*k>=40)??200,barPx=bar*k
  const fmtBar=s.imp?(bar<1?(bar*39.3701).toFixed(bar<.05?1:0)+' in':(bar*3.28084).toFixed(bar<5?1:0)+' ft'):bar>=1?bar+' m':(bar*100).toFixed(0)+' cm'
  const onMove=(e:React.MouseEvent<SVGSVGElement>)=>{const px=e.nativeEvent.offsetX,py=e.nativeEvent.offsetY;setMx(px>=X(0)&&px<=X(range)?px:null)
@@ -46,7 +46,10 @@ export function Chart({res,s,t,shot,reset,range}:{res:Result;s:S;t:(k:Key)=>stri
  const onWheel=(e:React.WheelEvent)=>{const px=e.nativeEvent.offsetX,py=e.nativeEvent.offsetY,f=Math.exp(-e.deltaY*.002)
   const z=Math.min(Math.max(v.z*f,1),zMax),n=sc(z),wx=inv(px),wy=v.cy-(py-myp)/ky
   setView(fit({z,cx:wx-(px-mxp)/n.kx,cy:wy+(py-myp)/n.ky}))}
- const zl=(c:number,i:number)=><g key={i}><circle cx={X(c)} cy={Y(0)} r="5" className="zr"/><text x={X(c)} y={Y(0)-(i&&(c-res.crossings[0])*kx<130?30:14)} className="lb zt">{t(i?'z2':'z1')} · {(c*kd).toFixed(0)}{ud}</text></g>
+ const zy=(c:number,i:number)=>Y(0)-(i&&(c-res.crossings[0])*kx<130?30:14)
+ // the apex label climbs above any zero label it would overlap
+ const ay=res.crossings.reduce((y,c,i)=>Math.abs(X(c)-X(res.apex.s))<150?Math.min(y,zy(c,i)-18):y,Y(res.apex.h)-12)
+ const zl=(c:number,i:number)=><g key={i}><circle cx={X(c)} cy={Y(0)} r="5" className="zr"/><text x={X(c)} y={zy(c,i)} className="lb zt">{t(i?'z2':'z1')} · {(c*kd).toFixed(0)}{ud}</text></g>
  return <div ref={box} className="chart"><svg width={w} height={h} onMouseMove={onMove} onMouseLeave={()=>{setMx(null);drag.current=null}} onWheel={onWheel} onDoubleClick={()=>setView(null)}
   onMouseDown={e=>{drag.current={x:e.nativeEvent.offsetX,y:e.nativeEvent.offsetY,v}}} onMouseUp={()=>{drag.current=null}} style={{cursor:drag.current?'grabbing':'grab'}}>
   <defs><radialGradient id="gold"><stop offset="0" stopColor="#fff8e1"/><stop offset=".45" stopColor="#ffd54f"/><stop offset="1" stopColor="#c99700"/></radialGradient></defs>
@@ -57,7 +60,7 @@ export function Chart({res,s,t,shot,reset,range}:{res:Result;s:S;t:(k:Key)=>stri
   <line x1={X(0)+eyeX(gun,s.barrel)*ky} x2={X(range)} y1={Y(0)} y2={Y(0)} className="los"/>
   <path d={d} pathLength={1} className="traj" strokeDasharray="1" strokeDashoffset={1-prog}/>
   {res.crossings.filter(c=>c<=range).map(zl)}
-  {s.apex&&prog>=1&&<g><line x1={X(res.apex.s)} x2={X(res.apex.s)} y1={Y(0)} y2={Y(res.apex.h)} className="ap"/><circle cx={X(res.apex.s)} cy={Y(res.apex.h)} r="4" className="apc"/><text x={X(res.apex.s)} y={Y(res.apex.h)-12} className="lb at">{t('apexL')} +{(res.apex.h*kh).toFixed(1)}{uh} @ {(res.apex.s*kd).toFixed(0)}{ud}</text></g>}
+  {prog>=1&&<g><line x1={X(res.apex.s)} x2={X(res.apex.s)} y1={Y(0)} y2={Y(res.apex.h)} className="ap"/><circle cx={X(res.apex.s)} cy={Y(res.apex.h)} r="4" className="apc"/><text x={X(res.apex.s)} y={ay} className="lb at">{t('apexL')} +{(res.apex.h*kh).toFixed(1)}{uh} @ {(res.apex.s*kd).toFixed(0)}{ud}</text></g>}
   {hp&&<g><line x1={X(hp.s)} x2={X(hp.s)} y1={0} y2={ya} className="cur"/><line x1={X(hp.s)} x2={X(hp.s)} y1={Y(0)} y2={Y(hp.h)} className="dh"/><circle cx={X(hp.s)} cy={Y(hp.h)} r="4" className="apc"/></g>}
   {bp&&prog<1&&<circle cx={X(bp.s)} cy={Y(bp.h)} r="5" fill="url(#gold)" className="bul"/>}
   <g>{ticks.map((m,i)=><g key={'t'+i}><line x1={X(m)} x2={X(m)} y1={ya} y2={ya+(i%every?4:8)} className="axis"/>{i%every===0&&<text x={X(m)} y={ya+22} className="lb tk">{(m*kd).toFixed(0)}</text>}</g>)}

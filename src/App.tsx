@@ -5,18 +5,17 @@ import {dict,Key,Lang} from './i18n'
 import {Chart} from './Chart'
 import {GUNS,gunFor} from './Weapons'
 // barrel and twist are stored in inches, sight in mm, distances in m
-export interface S{mode:'lite'|'pro';cal:string;bullet:string;v0:number;barrel:number;twist:number;sight:number;zero:number;temp:number;atm:'alt'|'press';alt:number;press:number;wind:number;windDir:number;angle:number;step:number;apex:boolean;hover:boolean;real:boolean;lang:Lang;imp:boolean;open:boolean}
-const DEF:S={mode:'lite',cal:'223',bullet:'223-fmj55',v0:vFor(BULLETS[0],16),barrel:16,twist:7,sight:65,zero:100,temp:15,atm:'alt',alt:0,press:1013,wind:0,windDir:90,angle:0,step:50,apex:true,hover:true,real:true,lang:'uk',imp:false,open:true}
+export interface S{mode:'lite'|'pro';cal:string;bullet:string;v0:number;barrel:number;twist:number;sight:number;zero:number;temp:number;atm:'alt'|'press';alt:number;press:number;wind:number;windDir:number;angle:number;step:number;real:boolean;lang:Lang;imp:boolean;open:boolean}
+const DEF:S={mode:'lite',cal:'223',bullet:'223-fmj55',v0:vFor(BULLETS[0],16),barrel:16,twist:7,sight:65,zero:100,temp:15,atm:'alt',alt:0,press:1013,wind:0,windDir:90,angle:0,step:50,real:true,lang:'uk',imp:false,open:true}
 const KEY='ballistic3'
-const load=():S=>{try{return{...DEF,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch{return DEF}}
+const load=():S=>{try{const v={...DEF,...JSON.parse(localStorage.getItem(KEY)||'{}')};return STEPS.includes(v.step)?v:{...v,step:DEF.step}}catch{return DEF}}
 // Lite mode: standard atmosphere, still air, level shot — conditions that barely affect the result
 const STD={temp:15,press:1013.25,wind:0,windDir:90,angle:0}
-const MAXZERO=300,RANGE=1500
+const MAXZERO=300,RANGE=1500,STEPS=[10,25,50,100]
 interface SP{label:string;value:number;min:number;max:number;step:number;k?:number;off?:number;dmin?:number;dmax?:number;unit:string;dec?:number;fmt?:(d:number)=>string;alt?:string;on:(v:number)=>void}
 function Slider({label,value,min,max,step,k=1,off=0,dmin,dmax,unit,dec=0,fmt,alt,on}:SP){
  const d=value*k+off
  return <label className="f"><span>{label}<b>{fmt?fmt(d):d.toFixed(dec)+' '+unit}{alt&&<small> ({alt})</small>}</b></span><input type="range" min={dmin??min*k+off} max={dmax??max*k+off} step={step} value={d} onChange={e=>on((+e.target.value-off)/k)}/></label>}
-const Check=({label,v,on}:{label:string;v:boolean;on:(v:boolean)=>void})=><label className="c"><input type="checkbox" checked={v} onChange={e=>on(e.target.checked)}/><span>{label}</span></label>
 export function App(){
  const [s,set]=useState<S>(load),[shot,setShot]=useState(0),[reset,setReset]=useState(0)
  const p=(o:Partial<S>)=>set(x=>({...x,...o}))
@@ -42,7 +41,7 @@ export function App(){
    <div className="mode"><button role="switch" aria-checked={pro} className={pro?'sw pro':'sw'} onClick={()=>p({mode:pro?'lite':'pro'})}><span className={pro?'':'on'}>LITE</span><i/><span className={pro?'on':''}>PRO</span></button></div>
    <h1>BALLISTIC<i>TRAJECTORY</i></h1>
    <h2>{t('weapon')}</h2>
-   <Slider label={t('barrel')} value={s.barrel} min={9} max={30} step={.25} unit="" fmt={d=>inch(d)} alt={mm(s.barrel*25.4)} on={v=>p({barrel:v,v0:vFor(b,v)})}/>
+   <Slider label={t('barrel')} value={s.barrel} min={6} max={30} step={.25} unit="" fmt={d=>inch(d)} alt={mm(s.barrel*25.4)} on={v=>p({barrel:v,v0:vFor(b,v)})}/>
    <Slider label={t('twist')} value={s.twist} min={6} max={10} step={1} unit="" fmt={d=>'1:'+d.toFixed(0)+'″'} alt={'1:'+mm(s.twist*25.4)} on={v=>p({twist:v})}/>
    <p className={'note '+(sg<1?'bad':sg<1.3?'warn':'ok')}>{t('stable')} Sg {sg.toFixed(2)}{sg<1?' — '+t('unstable'):sg<1.3?' — '+t('marginal'):''}</p>
    {I?<Slider label={t('sight')} value={s.sight} min={20} max={120} step={.05} k={1/25.4} dmin={.8} dmax={4.7} unit="" fmt={d=>inch(d)} alt={mm(s.sight)} on={v=>p({sight:v})}/>
@@ -67,9 +66,7 @@ export function App(){
    </>:<p className="note">{t('lite')}</p>}
    <h2>{t('view')}</h2>
    <div className="mode vis"><button role="switch" aria-checked={s.real} className={s.real?'sw pro':'sw'} onClick={()=>p({real:!s.real})}><span className={s.real?'':'on'}>{t('schem')}</span><i/><span className={s.real?'on':''}>{t('real')}</span></button></div>
-   <Slider label={t('step')} value={s.step} min={25} max={100} step={25} unit={dist} on={v=>p({step:v})}/>
-   <Check label={t('apex')} v={s.apex} on={v=>p({apex:v})}/>
-   <Check label={t('hover')} v={s.hover} on={v=>p({hover:v})}/>
+   <Slider label={t('step')} value={Math.max(0,STEPS.indexOf(s.step))} min={0} max={STEPS.length-1} step={1} unit="" fmt={i=>STEPS[i]+' '+dist} on={i=>p({step:STEPS[i]})}/>
    <p className="note">{t('hint')}</p>
    <button className="btn" onClick={()=>setShot(n=>n+1)}>{t('replay')}</button>
    <button className="btn" onClick={()=>setReset(n=>n+1)}>{t('reset')}</button>
