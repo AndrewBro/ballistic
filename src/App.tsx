@@ -1,18 +1,25 @@
 import {useEffect,useMemo,useState} from 'react'
 import {solve,pressureFromAlt,stability,ptAt} from './core/ballistics'
-import {CALIBERS,BULLETS,vFor} from './data/bullets'
+import {CALIBERS,BULLETS,vFor,Bullet} from './data/bullets'
 import {dict,Key,Lang} from './i18n'
 import {Chart} from './Chart'
 import {GUNS,gunFor} from './Weapons'
 // barrel and twist are stored in inches, sight in mm, distances in m
-export interface S{mode:'lite'|'pro';cal:string;bullet:string;v0:number;barrel:number;twist:number;sight:number;zero:number;temp:number;atm:'alt'|'press';alt:number;press:number;wind:number;windDir:number;angle:number;step:number;real:boolean;fixOn:boolean;fixD:number;lang:Lang;imp:boolean;open:boolean}
-const DEF:S={mode:'lite',cal:'223',bullet:'223-fmj55',v0:vFor(BULLETS.find(b=>b.id==='223-fmj55')!,16),barrel:16,twist:7,sight:65,zero:100,temp:15,atm:'alt',alt:0,press:1013,wind:0,windDir:90,angle:0,step:50,real:true,fixOn:false,fixD:100,lang:'uk',imp:false,open:true}
+// custom bullet: what the user types in from the box or the maker's site
+type CB={gr:number;bc:number;m:'G1'|'G7';len:number}
+export interface S{mode:'lite'|'pro';cal:string;bullet:string;v0:number;barrel:number;twist:number;sight:number;zero:number;temp:number;atm:'alt'|'press';alt:number;press:number;wind:number;windDir:number;angle:number;step:number;real:boolean;fixOn:boolean;fixD:number;cb:CB|null;lang:Lang;imp:boolean;open:boolean}
+const DEF:S={mode:'lite',cal:'223',bullet:'223-fmj55',v0:vFor(BULLETS.find(b=>b.id==='223-fmj55')!,16),barrel:16,twist:7,sight:65,zero:100,temp:15,atm:'alt',alt:0,press:1013,wind:0,windDir:90,angle:0,step:50,real:true,fixOn:false,fixD:100,cb:null,lang:'uk',imp:false,open:true}
 const KEY='ballistic3'
 const load=():S=>{try{const v={...DEF,...JSON.parse(localStorage.getItem(KEY)||'{}')};return STEPS.includes(v.step)?v:{...v,step:DEF.step}}catch{return DEF}}
 // Lite mode: standard atmosphere, still air, level shot — conditions that barely affect the result
 const STD={temp:15,press:1013.25,wind:0,windDir:90,angle:0}
 const MAXZERO=300,RANGE=1500,STEPS=[10,25,50,100]
 interface SP{label:string;value:number;min:number;max:number;step:number;k?:number;off?:number;dmin?:number;dmax?:number;unit:string;dec?:number;fmt?:(d:number)=>string;alt?:string;on:(v:number)=>void}
+/** Number field that ignores empty or out-of-range input instead of storing it. */
+function Num({label,value,min,max,step,on}:{label:string;value:number;min:number;max:number;step:number;on:(v:number)=>void}){
+ const [txt,setTxt]=useState(String(value))
+ useEffect(()=>{if(+txt!==value)setTxt(String(value))},[value]) // eslint-disable-line
+ return <label className="num"><span>{label}</span><input type="number" inputMode="decimal" min={min} max={max} step={step} value={txt} onChange={e=>{setTxt(e.target.value);const v=parseFloat(e.target.value.replace(',','.'));if(v>=min&&v<=max)on(v)}}/></label>}
 function Slider({label,value,min,max,step,k=1,off=0,dmin,dmax,unit,dec=0,fmt,alt,on}:SP){
  const d=value*k+off
  return <label className="f"><span>{label}<b>{fmt?fmt(d):d.toFixed(dec)+' '+unit}{alt&&<small> ({alt})</small>}</b></span><input type="range" min={dmin??min*k+off} max={dmax??max*k+off} step={step} value={d} onChange={e=>on((+e.target.value-off)/k)}/></label>}
@@ -21,7 +28,8 @@ export function App(){
  const p=(o:Partial<S>)=>set(x=>({...x,...o}))
  useEffect(()=>{localStorage.setItem(KEY,JSON.stringify(s))},[s])
  const t=(k:Key)=>dict[s.lang][k],I=s.imp,pro=s.mode==='pro'
- const cal=CALIBERS.find(c=>c.id===s.cal)??CALIBERS[0],list=BULLETS.filter(b=>b.cal===cal.id),b=BULLETS.find(x=>x.id===s.bullet&&x.cal===cal.id)??list[0]
+ const cal=CALIBERS.find(c=>c.id===s.cal)??CALIBERS[0],list=BULLETS.filter(b=>b.cal===cal.id),custom=s.bullet==='custom'&&s.cb!==null
+ const b:Bullet=custom?{id:'custom',cal:cal.id,name:'',...s.cb!,v:0,ok:false}:BULLETS.find(x=>x.id===s.bullet&&x.cal===cal.id)??list[0]
  const env=pro?{temp:s.temp,press:s.atm==='alt'?pressureFromAlt(s.alt):s.press,wind:s.wind,windDir:s.windDir,angle:s.angle}:STD
  const zero=Math.min(s.zero,MAXZERO)
  const res=useMemo(()=>{
@@ -43,26 +51,36 @@ export function App(){
  const sg=stability(b.gr,cal.d,b.len,twist,s.v0*3.28084,env.temp*1.8+32,env.press)
  // a caliber brings its typical rifle: barrel length and sight height follow it
  const pick=(cid:string)=>{const f=BULLETS.find(x=>x.cal===cid)!,g=GUNS[gunFor(cid)],bl=CALIBERS.find(c=>c.id===cid)!.barrel??g.barrel;p({cal:cid,bullet:f.id,barrel:bl,twist:CALIBERS.find(c=>c.id===cid)!.tw[2],sight:g.sight,v0:vFor(f,bl)});setShot(n=>n+1)}
- const pickB=(id:string)=>{p({bullet:id,v0:vFor(BULLETS.find(x=>x.id===id)!,s.barrel)});setShot(n=>n+1)}
+ // the custom bullet starts from the bullet that was selected and keeps the current velocity
+ const pickB=(id:string)=>{p(id==='custom'?{bullet:id,cb:s.cb??{gr:b.gr,bc:b.bc,m:b.m,len:b.len}}:{bullet:id,v0:vFor(BULLETS.find(x=>x.id===id)!,s.barrel)});setShot(n=>n+1)}
+ const setCb=(o:Partial<CB>)=>p({cb:{...s.cb!,...o}})
  const dist=I?'yd':'m',mm=(v:number)=>v.toFixed(0)+' mm',inch=(v:number,d=2)=>v.toFixed(d)+'″'
  return <div className="app">
   <aside className={s.open?'side':'side shut'}>
    <div className="mode"><button role="switch" aria-checked={pro} className={pro?'sw pro':'sw'} onClick={()=>p({mode:pro?'lite':'pro'})}><span className={pro?'':'on'}>LITE</span><i/><span className={pro?'on':''}>PRO</span></button></div>
    <h1>BALLISTIC<i>TRAJECTORY</i></h1>
+   <h2>{t('ammo')}</h2>
+   <label className="f"><span>{t('caliber')}</span><select value={cal.id} onChange={e=>pick(e.target.value)}>{CALIBERS.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+   <label className="f"><span>{t('bullet')}</span><select value={b.id} onChange={e=>pickB(e.target.value)}><option value="custom">{t('custom')}</option>{list.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+   {custom?<>
+    <div className="cb">
+     <Num label={t('bcL')} value={b.bc} min={.01} max={1.5} step={.001} on={v=>setCb({bc:v})}/>
+     <label className="num"><span>{t('model')}</span><select value={b.m} onChange={e=>setCb({m:e.target.value as CB['m']})}><option>G1</option><option>G7</option></select></label>
+     <Num label={t('weight')} value={b.gr} min={10} max={800} step={1} on={v=>setCb({gr:v})}/>
+     <Num label={t('blen')} value={b.len} min={.2} max={2.5} step={.01} on={v=>setCb({len:v})}/>
+    </div>
+    <p className="note">{t('customNote')}</p>
+   </>:<p className="note">{b.gr} gr · {b.m} BC {b.bc} · Ø {cal.d}″<br/>{b.ok?'✓ '+t('okNote'):'⚠ '+t('verify')}</p>}
+   <Slider label={t('velocity')} value={s.v0} min={200} max={1200} step={I?5:1} k={I?3.28084:1} unit={I?'fps':'m/s'} alt={I?s.v0.toFixed(0)+' m/s':(s.v0*3.28084).toFixed(0)+' fps'} on={v=>p({v0:v})}/>
+   <p className="note">{t('vNote')}</p>
    <h2>{t('weapon')}</h2>
-   <Slider label={t('barrel')} value={s.barrel} min={6} max={30} step={.25} unit="" fmt={d=>inch(d)} alt={mm(s.barrel*25.4)} on={v=>p({barrel:v,v0:vFor(b,v)})}/>
+   <Slider label={t('barrel')} value={s.barrel} min={6} max={30} step={.25} unit="" fmt={d=>inch(d)} alt={mm(s.barrel*25.4)} on={v=>p({barrel:v,v0:custom?Math.round(s.v0+(v-s.barrel)*cal.kv):vFor(b,v)})}/>
    <Slider label={t('twist')} value={twist} min={cal.tw[0]} max={cal.tw[1]} step={.5} unit="" fmt={d=>'1:'+d+'″'} alt={'1:'+mm(twist*25.4)} on={v=>p({twist:v})}/>
    <p className={'note '+(sg<1?'bad':sg<1.3?'warn':'ok')}>{t('stable')} Sg {sg.toFixed(2)}{sg<1?' — '+t('unstable'):sg<1.3?' — '+t('marginal'):''}</p>
    {I?<Slider label={t('sight')} value={s.sight} min={20} max={120} step={.05} k={1/25.4} dmin={.8} dmax={4.7} unit="" fmt={d=>inch(d)} alt={mm(s.sight)} on={v=>p({sight:v})}/>
    :<Slider label={t('sight')} value={s.sight} min={20} max={120} step={1} unit="mm" alt={inch(s.sight/25.4)} on={v=>p({sight:v})}/>}
    {I?<Slider label={t('zero')} value={zero} min={10} max={MAXZERO} step={5} k={1.09361} dmin={10} dmax={325} unit="yd" alt={zero.toFixed(0)+' m'} on={v=>p({zero:v})}/>
    :<Slider label={t('zero')} value={zero} min={10} max={MAXZERO} step={5} unit="m" alt={(zero*1.09361).toFixed(0)+' yd'} on={v=>p({zero:v})}/>}
-   <h2>{t('ammo')}</h2>
-   <label className="f"><span>{t('caliber')}</span><select value={cal.id} onChange={e=>pick(e.target.value)}>{CALIBERS.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-   <label className="f"><span>{t('bullet')}</span><select value={b.id} onChange={e=>pickB(e.target.value)}>{list.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-   <p className="note">{b.gr} gr · {b.m} BC {b.bc} · Ø {cal.d}″{!b.ok&&<><br/>⚠ {t('verify')}</>}</p>
-   <Slider label={t('velocity')} value={s.v0} min={200} max={1200} step={I?5:1} k={I?3.28084:1} unit={I?'fps':'m/s'} on={v=>p({v0:v})}/>
-   <p className="note">{t('vNote')}</p>
    {pro?<>
     <h2>{t('cond')}</h2>
     <Slider label={t('temp')} value={s.temp} min={-30} max={45} step={1} k={I?1.8:1} off={I?32:0} unit={I?'°F':'°C'} on={v=>p({temp:v})}/>
