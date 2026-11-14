@@ -4,11 +4,12 @@ import {CALIBERS,BULLETS,vFor,Bullet} from './data/bullets'
 import {dict,Key,Lang} from './i18n'
 import {Chart} from './Chart'
 import {GUNS,gunFor} from './Weapons'
+import {TARGETS,TargetFace} from './Targets'
 // barrel and twist are stored in inches, sight in mm, distances in m
 // custom bullet: what the user types in from the box or the maker's site
 type CB={gr:number;bc:number;m:'G1'|'G7';len:number}
-export interface S{mode:'lite'|'pro';cal:string;bullet:string;v0:number;barrel:number;twist:number;sight:number;zero:number;temp:number;atm:'alt'|'press';alt:number;press:number;wind:number;windDir:number;angle:number;step:number;real:boolean;fixOn:boolean;fixD:number;cb:CB|null;lang:Lang;imp:boolean;open:boolean}
-const DEF:S={mode:'lite',cal:'223',bullet:'223-fmj55',v0:vFor(BULLETS.find(b=>b.id==='223-fmj55')!,16),barrel:16,twist:7,sight:65,zero:25,temp:15,atm:'alt',alt:0,press:1013,wind:0,windDir:90,angle:0,step:25,real:false,fixOn:false,fixD:100,cb:null,lang:'uk',imp:false,open:true}
+export interface S{mode:'lite'|'pro';cal:string;bullet:string;v0:number;barrel:number;twist:number;sight:number;zero:number;temp:number;atm:'alt'|'press';alt:number;press:number;wind:number;windDir:number;angle:number;step:number;real:boolean;fixOn:boolean;fixD:number;tgOn:boolean;tg:string;tgD:number;tgAim:'c'|'h';tgFace:boolean;tfB:number;tfW:number;tfR:number;cb:CB|null;lang:Lang;imp:boolean;open:boolean}
+const DEF:S={mode:'lite',cal:'223',bullet:'223-fmj55',v0:vFor(BULLETS.find(b=>b.id==='223-fmj55')!,16),barrel:16,twist:7,sight:65,zero:25,temp:15,atm:'alt',alt:0,press:1013,wind:0,windDir:90,angle:0,step:25,real:false,fixOn:false,fixD:100,tgOn:false,tg:'idpa',tgD:100,tgAim:'c',tgFace:false,tfB:64,tfW:240,tfR:16,cb:null,lang:'uk',imp:false,open:true}
 const KEY='ballistic4'
 const load=():S=>{try{const v={...DEF,...JSON.parse(localStorage.getItem(KEY)||'{}')};return STEPS.includes(v.step)?v:{...v,step:DEF.step}}catch{return DEF}}
 // Lite mode: standard atmosphere, still air, level shot — conditions that barely affect the result
@@ -38,7 +39,7 @@ function Slider({label,value,min,max,step,k=1,off=0,dmin,dmax,unit,dec=0,fmt,alt
   :fmt?fmt(d):d.toFixed(dec)+' '+unit}{alt&&<small> ({alt})</small>}</b></span>
   <div className="rg">{btn(-1,'−')}<input type="range" aria-label={label} min={lo} max={hi} step={step} value={d} onChange={e=>on((+e.target.value-off)/k)}/>{btn(1,'+')}</div></div>}
 export function App(){
- const [s,set]=useState<S>(load),[shot,setShot]=useState(0),[reset,setReset]=useState(0)
+ const [s,set]=useState<S>(load),[shot,setShot]=useState(0),[reset,setReset]=useState(0),[panel,setPanel]=useState<'main'|'target'>('main')
  const p=(o:Partial<S>)=>set(x=>({...x,...o}))
  useEffect(()=>{localStorage.setItem(KEY,JSON.stringify(s))},[s])
  const t=(k:Key)=>dict[s.lang][k],I=s.imp,pro=s.mode==='pro'
@@ -62,6 +63,8 @@ export function App(){
   return{...res,pts,crossings:res.crossings.filter(c=>c<=fix),apex:pts.reduce((m,q)=>q.h>m.h?q:m,pts[0]),range:fix}
  },[res,s.fixOn,fix])
  const twist=Math.min(Math.max(s.twist,cal.tw[0]),cal.tw[1])
+ // target: one of the standard targets, standing anywhere from 5 m to the end of the view
+ const tgt=TARGETS.find(x=>x.id===s.tg)??TARGETS[0],tgMax=Math.max(5,Math.floor(res?.pts[res.pts.length-1].s??100)),tgD=Math.min(Math.max(s.tgD,5),tgMax)
  const sg=stability(b.gr,cal.d,b.len,twist,s.v0*3.28084,env.temp*1.8+32,env.press)
  // a caliber brings its typical rifle: barrel length and sight height follow it
  const pick=(cid:string)=>{const f=BULLETS.find(x=>x.cal===cid)!,g=GUNS[gunFor(cid)],c=CALIBERS.find(x=>x.id===cid)!,bl=c.barrel??g.barrel;p({cal:cid,bullet:f.id,barrel:bl,twist:c.tw[2],zero:c.zero??g.zero,sight:g.sight,v0:vFor(f,bl)});setShot(n=>n+1)}
@@ -71,6 +74,7 @@ export function App(){
  const dist=I?'yd':'m',mm=(v:number)=>v.toFixed(0)+' mm',inch=(v:number,d=2)=>v.toFixed(d)+'″'
  return <div className="app">
   <aside className={s.open?'side':'side shut'}>
+   {panel==="main"?<>
    <div className="mode"><button role="switch" aria-checked={pro} className={pro?'sw pro':'sw'} onClick={()=>p({mode:pro?'lite':'pro'})}><span className={pro?'':'on'}>LITE</span><i/><span className={pro?'on':''}>PRO</span></button></div>
    <h1>BALLISTIC<i>TRAJECTORY</i></h1>
    <div className="top">
@@ -89,10 +93,10 @@ export function App(){
     </div>
     <p className="note">{t('customNote')}</p>
    </>:<p className="note">{b.gr} gr · {b.m} BC {b.bc} · Ø {cal.d}″<br/>{b.ok?'✓ '+t('okNote'):'⚠ '+t('verify')}</p>}
-   <Slider label={t('velocity')} value={s.v0} min={200} max={1200} step={I?5:1} k={I?3.28084:1} unit={I?'fps':'m/s'} edit alt={I?s.v0.toFixed(0)+' m/s':(s.v0*3.28084).toFixed(0)+' fps'} on={v=>p({v0:v})}/>
-   <p className="note">{t('vNote')}</p>
    <h2>{t('weapon')}</h2>
    <Slider label={t('barrel')} value={s.barrel} min={6} max={30} step={.25} unit="" fmt={d=>inch(d)} alt={mm(s.barrel*25.4)} on={v=>p({barrel:v,v0:custom?Math.round(s.v0+(v-s.barrel)*cal.kv):vFor(b,v)})}/>
+   <Slider label={t('velocity')} value={s.v0} min={200} max={1200} step={I?5:1} k={I?3.28084:1} unit={I?'fps':'m/s'} edit alt={I?s.v0.toFixed(0)+' m/s':(s.v0*3.28084).toFixed(0)+' fps'} on={v=>p({v0:v})}/>
+   <p className="note">{t('vNote')}</p>
    <Slider label={t('twist')} value={twist} min={cal.tw[0]} max={cal.tw[1]} step={.5} unit="" fmt={d=>'1:'+d+'″'} alt={'1:'+mm(twist*25.4)} on={v=>p({twist:v})}/>
    <p className={'note '+(sg<1?'bad':sg<1.3?'warn':'ok')}>{t('stable')} Sg {sg.toFixed(2)}{sg<1?' — '+t('unstable'):sg<1.3?' — '+t('marginal'):''}</p>
    {I?<Slider label={t('sight')} value={s.sight} min={20} max={120} step={.05} k={1/25.4} dmin={.8} dmax={4.7} unit="" fmt={d=>inch(d)} alt={mm(s.sight)} on={v=>p({sight:v})}/>
@@ -115,10 +119,26 @@ export function App(){
    <div className="f row"><span>{t('fixed')}</span><button role="switch" aria-checked={s.fixOn} aria-label={t('fixed')} className={s.fixOn?'sw pro':'sw'} onClick={()=>p({fixOn:!s.fixOn,fixD:fix})}><i/></button></div>
    {s.fixOn&&(I?<Slider label={t('wall')} value={fix} min={fixMin} max={fixMax} step={5} k={1.09361} dmin={Math.ceil(fixMin*1.09361/5)*5} dmax={Math.floor(fixMax*1.09361/5)*5} unit="yd" alt={fix.toFixed(0)+' m'} on={v=>p({fixD:v})}/>
    :<Slider label={t('wall')} value={fix} min={fixMin} max={fixMax} step={5} unit="m" alt={(fix*1.09361).toFixed(0)+' yd'} on={v=>p({fixD:v})}/>)}
+   <button className="lnk" onClick={()=>setReset(n=>n+1)}>↺ {t('reset')}</button>
    <p className="note">{t('hint')}</p>
-   <button className="btn" onClick={()=>setShot(n=>n+1)}>{t('replay')}</button>
-   <button className="btn" onClick={()=>setReset(n=>n+1)}>{t('reset')}</button>
+   </>:<>
+   <div className="mode"><button className="lnk back" onClick={()=>setPanel('main')}>← {t('menu')}</button></div>
+   <h1>{t('target').toUpperCase()}<i>{t('tgView')}</i></h1>
+   <div className="f row"><span>{t('tgShow')}</span><button role="switch" aria-checked={s.tgOn} aria-label={t('tgShow')} className={s.tgOn?'sw pro':'sw'} onClick={()=>p({tgOn:!s.tgOn,tgD})}><i/></button></div>
+   {s.tgOn&&<>
+    <label className="f"><span>{t('tgType')}</span><select value={tgt.id} onChange={e=>p({tg:e.target.value})}>{TARGETS.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+    <div className="mode vis"><button role="switch" aria-checked={s.tgFace} className={s.tgFace?'sw pro':'sw'} onClick={()=>p({tgFace:!s.tgFace})}><span className={s.tgFace?'':'on'}>{t('tgSide')}</span><i/><span className={s.tgFace?'on':''}>{t('tgFront')}</span></button></div>
+    {tgt.aim.h!==undefined&&<div className="mode vis"><button role="switch" aria-checked={s.tgAim==='h'} className={s.tgAim==='h'?'sw pro':'sw'} onClick={()=>p({tgAim:s.tgAim==='h'?'c':'h'})}><span className={s.tgAim==='h'?'':'on'}>{t('aimC')}</span><i/><span className={s.tgAim==='h'?'on':''}>{t('aimH')}</span></button></div>}
+    {I?<Slider label={t('tgD')} value={tgD} min={5} max={tgMax} step={1} k={1.09361} dmin={6} dmax={Math.floor(tgMax*1.09361)} unit="yd" alt={tgD.toFixed(0)+' m'} on={v=>p({tgD:v})}/>
+    :<Slider label={t('tgD')} value={tgD} min={5} max={tgMax} step={1} unit="m" alt={(tgD*1.09361).toFixed(0)+' yd'} on={v=>p({tgD:v})}/>}
+    <p className="note">{t('tgNote')}</p>
+   </>}
+   </>}
+   <div className="shotbar"><button className="btn fire" onClick={()=>setShot(n=>n+1)}>{t('replay')}</button></div>
   </aside>
   <button className="burger" onClick={()=>p({open:!s.open})} aria-label={t('menu')}>☰</button>
-  <main>{shown?<Chart res={shown} s={s} t={t} shot={shot} reset={reset} range={shown.range} wall={s.fixOn?fix:null}/>:<p className="err">{t('cant')}</p>}</main>
+  {/* small IDPA target: opens the target settings in place of the main menu (and shows the target) */}
+  <button className={'tgbtn'+(panel==='target'&&s.open?' on':'')} aria-label={t('target')} title={t('target')} onClick={()=>{if(panel==='target'&&s.open)setPanel('main');else{setPanel('target');p({open:true,tgOn:true})}}}>
+   <svg viewBox="-.26 -.04 .52 .84" width="18" height="29"><g transform="scale(1 -1) translate(0 -.762)"><TargetFace t={TARGETS[0]}/></g></svg></button>
+  <main>{shown?<Chart res={shown} s={s} t={t} shot={shot} reset={reset} range={shown.range} wall={s.fixOn?fix:null} target={s.tgOn?{t:tgt,d:tgD,aim:tgt.aim.h!==undefined&&s.tgAim==='h'?'h':'c',face:s.tgFace}:null} onTarget={d=>p({tgD:Math.round(Math.min(Math.max(d,5),tgMax))})} onFace={o=>p(o)}/>:<p className="err">{t('cant')}</p>}</main>
  </div>}

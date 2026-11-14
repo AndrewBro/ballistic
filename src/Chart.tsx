@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react'
 import {Result,ptAt} from './core/ballistics'
 import {Shooter,GROUND,eyeX,figLeft} from './Shooter'
 import {gunFor} from './Weapons'
+import {Target,TargetFace,zoneAt} from './Targets'
 import type {S} from './App'
 import type {Key} from './i18n'
 // Heights always share one scale with the shooter (ky, px per metre). Realistic view: distance uses the same scale (kx = ky).
@@ -9,7 +10,8 @@ import type {Key} from './i18n'
 // View: zoom factor over the fitted scale and the world point (m) at the centre of the plot.
 interface View{z:number;cx:number;cy:number}
 const NICE=[.01,.02,.05,.1,.2,.5,1,2,5,10,20,50,100,200]
-export function Chart({res,s,t,shot,reset,range,wall}:{res:Result;s:S;t:(k:Key)=>string;shot:number;reset:number;range:number;wall:number|null}){
+export interface Tgt{t:Target;d:number;aim:'c'|'h';face:boolean} // face: turned to the viewer instead of side-on
+export function Chart({res,s,t,shot,reset,range,wall,target,onTarget,onFace}:{res:Result;s:S;t:(k:Key)=>string;shot:number;reset:number;range:number;wall:number|null;target:Tgt|null;onTarget:(d:number)=>void;onFace:(o:{tfB?:number;tfW?:number;tfR?:number})=>void}){
  const box=useRef<HTMLDivElement>(null)
  const [sz,setSz]=useState({w:900,h:600}),[view,setView]=useState<View|null>(null),[mx,setMx]=useState<number|null>(null),[my,setMy]=useState(0),[prog,setProg]=useState(0)
  const drag=useRef<{x:number;y:number;v:View}|null>(null),svg=useRef<SVGSVGElement>(null),wheel=useRef<(e:WheelEvent)=>void>(()=>{})
@@ -44,6 +46,17 @@ export function Chart({res,s,t,shot,reset,range,wall}:{res:Result;s:S;t:(k:Key)=
  const hp=mx!==null&&prog>=1&&!drag.current?ptAt(res.pts,Math.min(Math.max(inv(mx),0),range)):null
  // with a wall, the readout stays pinned to the impact point unless the cursor points elsewhere
  const hit=wall!==null&&prog>=1?res.pts[res.pts.length-1]:null,rp=hp??hit
+ // target: its aim point sits on the line of sight; the impact is the trajectory height (and drift) at its distance
+ const tg=target&&(()=>{const {t:tt,d}=target,ay=target.aim==='h'?tt.aim.h!:tt.aim.c,bot=-ay,q=ptAt(res.pts,d)
+  return{tt,d,ay,bot,q,zone:q?zoneAt(tt,q.z,ay+q.h):null}})()
+ const tgDrag=useRef(false)
+ // shooter's-view panel (never wider than the chart, for phones): press anywhere on it and drag to move it, drag the corner grip to resize; kept inside the chart
+ const fWid=Math.min(Math.max(s.tfW,180),Math.min(560,w-40),w-16),fBot=Math.min(Math.max(s.tfB,8),Math.max(8,h-fWid*.66-90)),fRt=Math.min(Math.max(s.tfR,8),Math.max(8,w-fWid-8))
+ const faceDrag=(kind:'move'|'size')=>(e:React.PointerEvent<HTMLDivElement>)=>{e.stopPropagation();const el=e.currentTarget,x0=e.clientX,y0=e.clientY,b0=fBot,r0=fRt,w0=fWid
+  try{el.setPointerCapture(e.pointerId)}catch{}
+  const mv=(m:PointerEvent)=>onFace(kind==='move'?{tfB:b0-(m.clientY-y0),tfR:r0-(m.clientX-x0)}:{tfW:w0-(m.clientX-x0)})
+  const up=()=>{el.removeEventListener('pointermove',mv);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up)}
+  el.addEventListener('pointermove',mv);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up)}
  // the readout floats next to the cursor (or the impact point) and flips to stay inside the chart
  const tw=190,th=s.mode==='pro'?122:100,ax=hp?mx!:hit?X(wall!):0,ay2=hp?my:hit?Y(hit.h):0
  const tl=ax+16+tw>w?ax-16-tw:ax+16,tt=Math.min(Math.max(ay2-th-16<8?ay2+16:ay2-th-16,8),h-th-8)
@@ -57,13 +70,15 @@ export function Chart({res,s,t,shot,reset,range,wall}:{res:Result;s:S;t:(k:Key)=
  const mid=()=>{const [a,b]=[...ptrs.current.values()];return{d:Math.hypot(a[0]-b[0],a[1]-b[1])||1,mx:(a[0]+b[0])/2,my:(a[1]+b[1])/2}}
  const onDown=(e:React.PointerEvent<SVGSVGElement>)=>{const [px,py]=pos(e);try{e.currentTarget.setPointerCapture(e.pointerId)}catch{} // keeps the gesture when a finger leaves the chart
   ptrs.current.set(e.pointerId,[px,py])
+  if(tg&&ptrs.current.size===1&&Math.abs(px-X(tg.d))<14){tgDrag.current=true;return} // grab the target itself
   if(ptrs.current.size===2){drag.current=null;pinch.current={...mid(),v}}else if(ptrs.current.size===1)drag.current={x:px,y:py,v}}
  const onMove=(e:React.PointerEvent<SVGSVGElement>)=>{const [px,py]=pos(e);setMy(py);setMx(px>=X(0)&&px<=X(range)?px:null)
   if(!ptrs.current.has(e.pointerId))return
+  if(tgDrag.current){onTarget(inv(px));return}
   ptrs.current.set(e.pointerId,[px,py])
   const pc=pinch.current;if(pc&&ptrs.current.size===2){const m=mid();zoomTo(pc.v,pc.v.z*m.d/pc.d,pc.mx,pc.my,m.mx,m.my);return}
   const g=drag.current;if(g)setView(fit({z:g.v.z,cx:g.v.cx-(px-g.x)/sc(g.v.z).kx,cy:g.v.cy+(py-g.y)/sc(g.v.z).ky}))}
- const onUp=(e:React.PointerEvent<SVGSVGElement>)=>{ptrs.current.delete(e.pointerId);pinch.current=null
+ const onUp=(e:React.PointerEvent<SVGSVGElement>)=>{ptrs.current.delete(e.pointerId);pinch.current=null;tgDrag.current=false
   const left=[...ptrs.current.values()][0];drag.current=left?{x:left[0],y:left[1],v}:null}
  // point labels (zeros, apex): the name sits above the point (apex: with its height), the distance below the line of sight,
  // all distances on one level. If any of them would cross the trajectory or each other, every label turns upright together.
@@ -89,6 +104,11 @@ export function Chart({res,s,t,shot,reset,range,wall}:{res:Result;s:S;t:(k:Key)=
   {ticks.map((m,i)=><line key={'g'+i} x1={X(m)} x2={X(m)} y1={0} y2={h} className="grid"/>)}
   <rect x={0} y={Y(GROUND)} width={w} height={Math.max(0,h-Y(GROUND))} className="soil"/>
   <line x1={0} x2={w} y1={Y(GROUND)} y2={Y(GROUND)} className="gnd"/>
+  {/* target sits behind the sight line, trajectory and labels; only its impact dot is drawn on top */}
+  {tg&&<g className="tside">{tg.bot>GROUND&&<line x1={X(tg.d)} x2={X(tg.d)} y1={Y(tg.bot)} y2={Y(GROUND)} className="stand"/>}
+   {target!.face?<g transform={`translate(${X(tg.d)} ${Y(tg.bot)}) scale(${ky} ${-ky})`}><TargetFace t={tg.tt}/></g> // face-on: true size, centred on its distance
+   :<rect x={X(tg.d)-3} y={Y(tg.bot+tg.tt.h)} width={6} height={Math.max(1,(tg.tt.h)*ky)} rx={1.5} className={'board '+tg.tt.look}/>}
+   </g>}
   <g transform={`translate(${X(0)} ${Y(0)}) scale(${k} ${-k})`}><Shooter gun={gun} barrelIn={s.barrel} sightM={s.sight/1000}/></g>
   <line x1={X(0)+eyeX(gun,s.barrel)*ky} x2={X(range)} y1={Y(0)} y2={Y(0)} className="los"/>
   <path d={d} pathLength={1} className="traj" strokeDasharray="1" strokeDashoffset={1-prog}/>
@@ -101,6 +121,7 @@ export function Chart({res,s,t,shot,reset,range,wall}:{res:Result;s:S;t:(k:Key)=
     <text>{l.name&&<tspan x={l.x} y={l.y-(l.sub?26:12)}>{l.name}</tspan>}{l.sub&&<tspan x={l.x} y={l.y-12}>{l.sub}</tspan>}</text>
     <text x={l.x} y={Y(0)+20}>{l.dist}</text></g>)}
   {hp&&<g><line x1={X(hp.s)} x2={X(hp.s)} y1={0} y2={ya} className="cur"/><line x1={X(hp.s)} x2={X(hp.s)} y1={Y(0)} y2={Y(hp.h)} className="dh"/><circle cx={X(hp.s)} cy={Y(hp.h)} r="4" className="apc"/></g>}
+  {tg&&tg.q&&prog>=1&&<circle cx={X(tg.d)+(target!.face?tg.q.z*ky:0)} cy={Y(tg.q.h)} r="4.5" fill="url(#gold)" className="bul"/>}
   {wall!==null&&<g><rect x={X(wall)} y={pt-20} width={6} height={Math.max(0,Y(GROUND)-pt+20)} className="wall"/>
    {hit&&<><circle cx={X(wall)} cy={Y(hit.h)} r="5" fill="url(#gold)" className="bul"/><text x={X(wall)-10} y={Y(hit.h)+(hit.h>=0?-10:18)} className="lb tr hit">{hit.h>=0?'+':''}{(hit.h*kh).toFixed(1)}{uh} @ {(wall*kd).toFixed(0)}{ud}</text></>}</g>}
   {bp&&prog<1&&<circle cx={X(bp.s)} cy={Y(bp.h)} r="5" fill="url(#gold)" className="bul"/>}
@@ -108,5 +129,17 @@ export function Chart({res,s,t,shot,reset,range,wall}:{res:Result;s:S;t:(k:Key)=
    <text x={Math.min(X(bx1),w-8)} y={ya+38} className="lb tr">{ud}</text></g>
   {ky/kx>1.05&&<text x={s.open?pl:64} y={29} className="lb cmp">{t('squeeze')} ×{(ky/kx).toFixed(ky/kx<10?1:0)}</text>}
  </svg>
+ {/* hidden when the chart is too narrow for it (a phone with the menu open) */}
+ {tg&&w>=200&&(()=>{const {tt,ay,q,zone}=tg,m=Math.max(tt.w,tt.h)*.12,ix=q?q.z:0,iy=q?ay+q.h:0
+  const x0=Math.min(-tt.w/2,ix)-m,x1=Math.max(tt.w/2,ix)+m,y0=Math.min(-.03,iy)-m,y1=Math.max(tt.h+.03,iy)+m,u=Math.max(tt.w,tt.h)
+  return <div className="tface" style={{bottom:fBot,right:fRt,width:fWid}} onPointerDown={faceDrag('move')} onPointerEnter={()=>setMx(null)}><div className="tfg" onPointerDown={faceDrag('size')}/>
+   <div className="tfh">{t('tgView')} · {tt.name}</div>
+   <svg style={{height:fWid*.66}} viewBox={`${x0} ${-y1} ${x1-x0} ${y1-y0}`} preserveAspectRatio="xMidYMid meet"><g transform="scale(1 -1)">
+    <TargetFace t={tt}/>
+    <path d={`M${-u*.05},${ay} L${u*.05},${ay} M0,${ay-u*.05} L0,${ay+u*.05}`} className="aimx" strokeWidth={u*.008}/>
+    {q&&prog>=1&&<circle cx={ix} cy={iy} r={u*.022} fill="url(#gold)" stroke="#000" strokeWidth={u*.004}/>}
+   </g></svg>
+   <div className="tfr">{!q?'—':prog<1?'…':zone?<b className="ok">{t('hitL')}{zone==='hit'?'':' '+zone}</b>:<b className="no">{t('miss')}</b>}
+    {q&&<span>{q.h>=0?'+':''}{(q.h*kh).toFixed(1)} {uh} · {(tg.d*kd).toFixed(0)} {ud}</span>}</div></div>})()}
  {rp&&<div className="tip" style={{left:tl,top:tt}}><div><span>{t('dist')}</span>{(rp.s*kd).toFixed(0)} {ud}</div><div><span>{t('h')}</span>{rp.h>=0?'+':''}{(rp.h*kh).toFixed(1)} {uh}</div><div><span>{t('spd')}</span>{(rp.v*(s.imp?3.28084:1)).toFixed(0)} {s.imp?'fps':'m/s'}</div><div><span>{t('time')}</span>{rp.t.toFixed(2)} s</div>{s.mode==='pro'&&<div><span>{t('drift')}</span>{(rp.z*kh).toFixed(1)} {uh}</div>}</div>}
  </div>}
