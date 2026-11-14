@@ -11,17 +11,20 @@ interface View{z:number;cx:number;cy:number}
 const NICE=[.01,.02,.05,.1,.2,.5,1,2,5,10,20,50,100,200]
 export function Chart({res,s,t,shot,reset,range,wall}:{res:Result;s:S;t:(k:Key)=>string;shot:number;reset:number;range:number;wall:number|null}){
  const box=useRef<HTMLDivElement>(null)
- const [sz,setSz]=useState({w:900,h:600}),[view,setView]=useState<View|null>(null),[mx,setMx]=useState<number|null>(null),[prog,setProg]=useState(0)
- const drag=useRef<{x:number;y:number;v:View}|null>(null)
+ const [sz,setSz]=useState({w:900,h:600}),[view,setView]=useState<View|null>(null),[mx,setMx]=useState<number|null>(null),[my,setMy]=useState(0),[prog,setProg]=useState(0)
+ const drag=useRef<{x:number;y:number;v:View}|null>(null),svg=useRef<SVGSVGElement>(null),wheel=useRef<(e:WheelEvent)=>void>(()=>{})
+ const ptrs=useRef(new Map<number,[number,number]>()),pinch=useRef<{d:number;mx:number;my:number;v:View}|null>(null)
+ // wheel/trackpad-pinch must be caught with a non-passive listener, otherwise the browser zooms the whole page
+ useEffect(()=>{const el=svg.current!,h=(e:WheelEvent)=>wheel.current(e);el.addEventListener('wheel',h,{passive:false});return()=>el.removeEventListener('wheel',h)},[])
  useEffect(()=>{const ro=new ResizeObserver(e=>setSz({w:e[0].contentRect.width,h:e[0].contentRect.height}));ro.observe(box.current!);return()=>ro.disconnect()},[])
  useEffect(()=>setView(null),[reset,s.real])
  useEffect(()=>{let r=0,t0=0;const f=(n:number)=>{t0||=n;const u=Math.min((n-t0)/3600,1);setProg(1-Math.pow(1-u,3));if(u<1)r=requestAnimationFrame(f)};r=requestAnimationFrame(f);return()=>cancelAnimationFrame(r)},[shot])
  // keep the top clear for the readout panel so it never covers the trajectory
- const {w,h}=sz,pl=24,pr=w-80,pt=200,pb=h-44,PW=pr-pl,PH=pb-pt
+ const {w,h}=sz,pl=24,pr=w-80,pt=44,pb=h-44,PW=pr-pl,PH=pb-pt
  const kd=s.imp?1.09361:1,kh=s.imp?39.3701:100,uh=s.imp?'in':'cm',ud=s.imp?'yd':'m'
  // world bounds: shooter + trajectory; the view never leaves them
  const hmax=Math.max(...res.pts.map(p=>p.h)),hmin=Math.min(...res.pts.map(p=>p.h))
- const gun=gunFor(s.cal),fw=.2-figLeft(gun,s.barrel),bx1=range*1.02,by0=Math.min(GROUND,hmin)-.1,by1=Math.max(.25,hmax+.1)
+ const gun=gunFor(s.cal),fw=.2-figLeft(gun,s.barrel),bx1=range*1.02,ext=Math.max(.1-Math.min(GROUND,hmin),.25,hmax+.1),by0=-ext,by1=ext // symmetric around the line of sight, so it always sits at the vertical centre
  // deepest zoom: everything from the ground to the top of the trajectory still fits, the shooter takes at most a third of the width
  const kFull=Math.min(PH/(by1-by0),PW*.35/fw)
  const kMin=s.real?Math.min(PW/(bx1+fw),kFull):kFull,kxMin=s.real?kMin:(PW-fw*kFull)/bx1
@@ -41,19 +44,47 @@ export function Chart({res,s,t,shot,reset,range,wall}:{res:Result;s:S;t:(k:Key)=
  const hp=mx!==null&&prog>=1&&!drag.current?ptAt(res.pts,Math.min(Math.max(inv(mx),0),range)):null
  // with a wall, the readout stays pinned to the impact point unless the cursor points elsewhere
  const hit=wall!==null&&prog>=1?res.pts[res.pts.length-1]:null,rp=hp??hit
- const bar=NICE.find(n=>n*k>=40)??200,barPx=bar*k
- const fmtBar=s.imp?(bar<1?(bar*39.3701).toFixed(bar<.05?1:0)+' in':(bar*3.28084).toFixed(bar<5?1:0)+' ft'):bar>=1?bar+' m':(bar*100).toFixed(0)+' cm'
- const onMove=(e:React.MouseEvent<SVGSVGElement>)=>{const px=e.nativeEvent.offsetX,py=e.nativeEvent.offsetY;setMx(px>=X(0)&&px<=X(range)?px:null)
-  const g=drag.current;if(g)setView(fit({z:g.v.z,cx:g.v.cx-(px-g.x)/kx,cy:g.v.cy+(py-g.y)/ky}))}
- const onWheel=(e:React.WheelEvent)=>{const px=e.nativeEvent.offsetX,py=e.nativeEvent.offsetY,f=Math.exp(-e.deltaY*.002)
-  const z=Math.min(Math.max(v.z*f,1),zMax),n=sc(z),wx=inv(px),wy=v.cy-(py-myp)/ky
-  setView(fit({z,cx:wx-(px-mxp)/n.kx,cy:wy+(py-myp)/n.ky}))}
- const zy=(c:number,i:number)=>Y(0)-(i&&(c-res.crossings[0])*kx<130?30:14)
- // the apex label climbs above any zero label it would overlap
- const ay=res.crossings.reduce((y,c,i)=>Math.abs(X(c)-X(res.apex.s))<150?Math.min(y,zy(c,i)-18):y,Y(res.apex.h)-12)
- const zl=(c:number,i:number)=><g key={i}><circle cx={X(c)} cy={Y(0)} r="5" className="zr"/><text x={X(c)} y={zy(c,i)} className="lb zt">{t(i?'z2':'z1')} · {(c*kd).toFixed(0)}{ud}</text></g>
- return <div ref={box} className="chart"><svg width={w} height={h} onMouseMove={onMove} onMouseLeave={()=>{setMx(null);drag.current=null}} onWheel={onWheel} onDoubleClick={()=>setView(null)}
-  onMouseDown={e=>{drag.current={x:e.nativeEvent.offsetX,y:e.nativeEvent.offsetY,v}}} onMouseUp={()=>{drag.current=null}} style={{cursor:drag.current?'grabbing':'grab'}}>
+ // the readout floats next to the cursor (or the impact point) and flips to stay inside the chart
+ const tw=190,th=s.mode==='pro'?122:100,ax=hp?mx!:hit?X(wall!):0,ay2=hp?my:hit?Y(hit.h):0
+ const tl=ax+16+tw>w?ax-16-tw:ax+16,tt=Math.min(Math.max(ay2-th-16<8?ay2+16:ay2-th-16,8),h-th-8)
+ // zoom so that the world point under (px,py) in view v0 ends up under (qx,qy)
+ const zoomTo=(v0:View,z:number,px:number,py:number,qx=px,qy=py)=>{const k0=sc(v0.z),z1=Math.min(Math.max(z,1),zMax),n=sc(z1)
+  const wx=v0.cx+(px-mxp)/k0.kx,wy=v0.cy-(py-myp)/k0.ky;setView(fit({z:z1,cx:wx-(qx-mxp)/n.kx,cy:wy+(qy-myp)/n.ky}))}
+ wheel.current=e=>{e.preventDefault();const r=svg.current!.getBoundingClientRect()
+  zoomTo(v,v.z*Math.exp(-e.deltaY*(e.ctrlKey?.01:.002)),e.clientX-r.left,e.clientY-r.top)}
+ // pointers: one drags the view, two pinch-zoom it (touch screens); the mouse also drives the hover readout
+ const pos=(e:React.PointerEvent):[number,number]=>{const r=svg.current!.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]}
+ const mid=()=>{const [a,b]=[...ptrs.current.values()];return{d:Math.hypot(a[0]-b[0],a[1]-b[1])||1,mx:(a[0]+b[0])/2,my:(a[1]+b[1])/2}}
+ const onDown=(e:React.PointerEvent<SVGSVGElement>)=>{const [px,py]=pos(e);try{e.currentTarget.setPointerCapture(e.pointerId)}catch{} // keeps the gesture when a finger leaves the chart
+  ptrs.current.set(e.pointerId,[px,py])
+  if(ptrs.current.size===2){drag.current=null;pinch.current={...mid(),v}}else if(ptrs.current.size===1)drag.current={x:px,y:py,v}}
+ const onMove=(e:React.PointerEvent<SVGSVGElement>)=>{const [px,py]=pos(e);setMy(py);setMx(px>=X(0)&&px<=X(range)?px:null)
+  if(!ptrs.current.has(e.pointerId))return
+  ptrs.current.set(e.pointerId,[px,py])
+  const pc=pinch.current;if(pc&&ptrs.current.size===2){const m=mid();zoomTo(pc.v,pc.v.z*m.d/pc.d,pc.mx,pc.my,m.mx,m.my);return}
+  const g=drag.current;if(g)setView(fit({z:g.v.z,cx:g.v.cx-(px-g.x)/sc(g.v.z).kx,cy:g.v.cy+(py-g.y)/sc(g.v.z).ky}))}
+ const onUp=(e:React.PointerEvent<SVGSVGElement>)=>{ptrs.current.delete(e.pointerId);pinch.current=null
+  const left=[...ptrs.current.values()][0];drag.current=left?{x:left[0],y:left[1],v}:null}
+ // point labels (zeros, apex): the name sits above the point (apex: with its height), the distance below the line of sight,
+ // all distances on one level. If any of them would cross the trajectory or each other, every label turns upright together.
+ const showApex=prog>=1&&res.apex.s<range-.5,CW=6.7 // px per character of the 11px mono font
+ type Lab={key:string;x:number;y:number;name:string;sub:string;dist:string;cls:string;top:string}
+ const labs:Lab[]=[...res.crossings.filter(c=>c<=range).map((c,i)=>({key:'z'+i,x:X(c),y:Y(0),name:t(i?'z2':'z1'),sub:'',dist:(c*kd).toFixed(0)+' '+ud,cls:'zt',top:''})),
+  ...(showApex?[{key:'a',x:X(res.apex.s),y:Y(res.apex.h),name:t('apexL'),sub:`+${(res.apex.h*kh).toFixed(1)} ${uh}`,dist:(res.apex.s*kd).toFixed(0)+' '+ud,cls:'at',top:''}]:[])]
+ for(const l of labs)l.top=l.sub?l.name+' '+l.sub:l.name
+ const scr=res.pts.map(p=>[X(p.s),Y(p.h)])
+ const hitsPath=(b:number[])=>scr.some(([x,y])=>x>=b[0]&&x<=b[2]&&y>=b[1]-2&&y<=b[3]+2)
+ const over=(a:number[],b:number[])=>a[0]<b[2]&&b[0]<a[2]&&a[1]<b[3]&&b[1]<a[3]
+ const boxes=labs.flatMap(l=>{const wt=Math.max(l.name.length,l.sub.length)*CW,wd=l.dist.length*CW,n=l.sub?2:1
+  return[[l.x-wt/2-3,l.y-8-13*n-3,l.x+wt/2+3,l.y-6],[l.x-wd/2-3,Y(0)+9,l.x+wd/2+3,Y(0)+24]]})
+ const vert=boxes.some((b,i)=>hitsPath(b)||boxes.some((o,j)=>j>i&&over(b,o)))
+ // upright labels that would touch stack: names upwards from their point, distances downwards from the line of sight
+ const up=new Map<string,number>(),dn=new Map<string,number>()
+ for(const l of [...labs].sort((a,b)=>a.x-b.x)){let u=l.y-12,d=Y(0)+12
+  for(const o of labs)if(up.has(o.key)&&Math.abs(o.x-l.x)<16){u=Math.min(u,up.get(o.key)!-o.top.length*CW-8);d=Math.max(d,dn.get(o.key)!+o.dist.length*CW+8)}
+  up.set(l.key,u);dn.set(l.key,d)}
+ return <div ref={box} className="chart"><svg ref={svg} width={w} height={h} onPointerMove={onMove} onPointerLeave={e=>{if(e.pointerType==='mouse')setMx(null)}} onDoubleClick={()=>setView(null)}
+  onPointerDown={onDown} onPointerUp={onUp} onPointerCancel={onUp} style={{cursor:drag.current?'grabbing':'grab'}}>
   <defs><radialGradient id="gold"><stop offset="0" stopColor="#fff8e1"/><stop offset=".45" stopColor="#ffd54f"/><stop offset="1" stopColor="#c99700"/></radialGradient></defs>
   {ticks.map((m,i)=><line key={'g'+i} x1={X(m)} x2={X(m)} y1={0} y2={h} className="grid"/>)}
   <rect x={0} y={Y(GROUND)} width={w} height={Math.max(0,h-Y(GROUND))} className="soil"/>
@@ -61,17 +92,21 @@ export function Chart({res,s,t,shot,reset,range,wall}:{res:Result;s:S;t:(k:Key)=
   <g transform={`translate(${X(0)} ${Y(0)}) scale(${k} ${-k})`}><Shooter gun={gun} barrelIn={s.barrel} sightM={s.sight/1000}/></g>
   <line x1={X(0)+eyeX(gun,s.barrel)*ky} x2={X(range)} y1={Y(0)} y2={Y(0)} className="los"/>
   <path d={d} pathLength={1} className="traj" strokeDasharray="1" strokeDashoffset={1-prog}/>
-  {res.crossings.filter(c=>c<=range).map(zl)}
-  {prog>=1&&res.apex.s<range-.5&&<g><line x1={X(res.apex.s)} x2={X(res.apex.s)} y1={Y(0)} y2={Y(res.apex.h)} className="ap"/><circle cx={X(res.apex.s)} cy={Y(res.apex.h)} r="4" className="apc"/><text x={X(res.apex.s)} y={ay} className="lb at">{t('apexL')} +{(res.apex.h*kh).toFixed(1)}{uh} @ {(res.apex.s*kd).toFixed(0)}{ud}</text></g>}
+  {res.crossings.filter(c=>c<=range).map((c,i)=><circle key={'zc'+i} cx={X(c)} cy={Y(0)} r="5" className="zr"/>)}
+  {showApex&&<g><line x1={X(res.apex.s)} x2={X(res.apex.s)} y1={Y(0)} y2={Y(res.apex.h)} className="ap"/><circle cx={X(res.apex.s)} cy={Y(res.apex.h)} r="4" className="apc"/></g>}
+  {labs.map(l=>vert?<g key={l.key} className={'lb vl '+l.cls}>
+    <text transform={`translate(${l.x+4} ${up.get(l.key)}) rotate(-90)`}>{l.top}</text>
+    <text transform={`translate(${l.x+4} ${dn.get(l.key)}) rotate(-90)`} className="ve">{l.dist}</text></g>
+   :<g key={l.key} className={'lb '+l.cls}>
+    <text>{l.name&&<tspan x={l.x} y={l.y-(l.sub?26:12)}>{l.name}</tspan>}{l.sub&&<tspan x={l.x} y={l.y-12}>{l.sub}</tspan>}</text>
+    <text x={l.x} y={Y(0)+20}>{l.dist}</text></g>)}
   {hp&&<g><line x1={X(hp.s)} x2={X(hp.s)} y1={0} y2={ya} className="cur"/><line x1={X(hp.s)} x2={X(hp.s)} y1={Y(0)} y2={Y(hp.h)} className="dh"/><circle cx={X(hp.s)} cy={Y(hp.h)} r="4" className="apc"/></g>}
   {wall!==null&&<g><rect x={X(wall)} y={pt-20} width={6} height={Math.max(0,Y(GROUND)-pt+20)} className="wall"/>
    {hit&&<><circle cx={X(wall)} cy={Y(hit.h)} r="5" fill="url(#gold)" className="bul"/><text x={X(wall)-10} y={Y(hit.h)+(hit.h>=0?-10:18)} className="lb tr hit">{hit.h>=0?'+':''}{(hit.h*kh).toFixed(1)}{uh} @ {(wall*kd).toFixed(0)}{ud}</text></>}</g>}
   {bp&&prog<1&&<circle cx={X(bp.s)} cy={Y(bp.h)} r="5" fill="url(#gold)" className="bul"/>}
   <g>{ticks.map((m,i)=><g key={'t'+i}><line x1={X(m)} x2={X(m)} y1={ya} y2={ya+(i%every?4:8)} className="axis"/>{i%every===0&&<text x={X(m)} y={ya+22} className="lb tk">{(m*kd).toFixed(0)}</text>}</g>)}
    <text x={Math.min(X(bx1),w-8)} y={ya+38} className="lb tr">{ud}</text></g>
-  <g transform={`translate(${w-30} ${pt+10})`}><line x1={0} x2={0} y1={0} y2={barPx} className="sbar"/><line x1={-5} x2={5} y1={0} y2={0} className="sbar"/><line x1={-5} x2={5} y1={barPx} y2={barPx} className="sbar"/>
-   <text x={-10} y={barPx/2+4} className="lb tr">{fmtBar}</text></g>
-  {ky/kx>1.05&&<text x={pl} y={22} className="lb cmp">{t('squeeze')} ×{(ky/kx).toFixed(ky/kx<10?1:0)}</text>}
+  {ky/kx>1.05&&<text x={s.open?pl:64} y={29} className="lb cmp">{t('squeeze')} ×{(ky/kx).toFixed(ky/kx<10?1:0)}</text>}
  </svg>
- {rp&&<div className="tip"><div><span>{t('dist')}</span>{(rp.s*kd).toFixed(0)} {ud}</div><div><span>{t('h')}</span>{rp.h>=0?'+':''}{(rp.h*kh).toFixed(1)} {uh}</div><div><span>{t('spd')}</span>{(rp.v*(s.imp?3.28084:1)).toFixed(0)} {s.imp?'fps':'m/s'}</div><div><span>{t('time')}</span>{rp.t.toFixed(2)} s</div><div><span>{t('drift')}</span>{(rp.z*kh).toFixed(1)} {uh}</div></div>}
+ {rp&&<div className="tip" style={{left:tl,top:tt}}><div><span>{t('dist')}</span>{(rp.s*kd).toFixed(0)} {ud}</div><div><span>{t('h')}</span>{rp.h>=0?'+':''}{(rp.h*kh).toFixed(1)} {uh}</div><div><span>{t('spd')}</span>{(rp.v*(s.imp?3.28084:1)).toFixed(0)} {s.imp?'fps':'m/s'}</div><div><span>{t('time')}</span>{rp.t.toFixed(2)} s</div>{s.mode==='pro'&&<div><span>{t('drift')}</span>{(rp.z*kh).toFixed(1)} {uh}</div>}</div>}
  </div>}

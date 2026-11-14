@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useState} from 'react'
+import {useEffect,useMemo,useRef,useState} from 'react'
 import {solve,pressureFromAlt,stability,ptAt} from './core/ballistics'
 import {CALIBERS,BULLETS,vFor,Bullet} from './data/bullets'
 import {dict,Key,Lang} from './i18n'
@@ -8,21 +8,35 @@ import {GUNS,gunFor} from './Weapons'
 // custom bullet: what the user types in from the box or the maker's site
 type CB={gr:number;bc:number;m:'G1'|'G7';len:number}
 export interface S{mode:'lite'|'pro';cal:string;bullet:string;v0:number;barrel:number;twist:number;sight:number;zero:number;temp:number;atm:'alt'|'press';alt:number;press:number;wind:number;windDir:number;angle:number;step:number;real:boolean;fixOn:boolean;fixD:number;cb:CB|null;lang:Lang;imp:boolean;open:boolean}
-const DEF:S={mode:'lite',cal:'223',bullet:'223-fmj55',v0:vFor(BULLETS.find(b=>b.id==='223-fmj55')!,16),barrel:16,twist:7,sight:65,zero:100,temp:15,atm:'alt',alt:0,press:1013,wind:0,windDir:90,angle:0,step:50,real:true,fixOn:false,fixD:100,cb:null,lang:'uk',imp:false,open:true}
-const KEY='ballistic3'
+const DEF:S={mode:'lite',cal:'223',bullet:'223-fmj55',v0:vFor(BULLETS.find(b=>b.id==='223-fmj55')!,16),barrel:16,twist:7,sight:65,zero:25,temp:15,atm:'alt',alt:0,press:1013,wind:0,windDir:90,angle:0,step:25,real:false,fixOn:false,fixD:100,cb:null,lang:'uk',imp:false,open:true}
+const KEY='ballistic4'
 const load=():S=>{try{const v={...DEF,...JSON.parse(localStorage.getItem(KEY)||'{}')};return STEPS.includes(v.step)?v:{...v,step:DEF.step}}catch{return DEF}}
 // Lite mode: standard atmosphere, still air, level shot — conditions that barely affect the result
 const STD={temp:15,press:1013.25,wind:0,windDir:90,angle:0}
 const MAXZERO=300,RANGE=1500,STEPS=[10,25,50,100]
-interface SP{label:string;value:number;min:number;max:number;step:number;k?:number;off?:number;dmin?:number;dmax?:number;unit:string;dec?:number;fmt?:(d:number)=>string;alt?:string;on:(v:number)=>void}
+interface SP{label:string;value:number;min:number;max:number;step:number;k?:number;off?:number;dmin?:number;dmax?:number;unit:string;dec?:number;fmt?:(d:number)=>string;alt?:string;edit?:boolean;on:(v:number)=>void} // edit: the value can also be typed in
 /** Number field that ignores empty or out-of-range input instead of storing it. */
 function Num({label,value,min,max,step,on}:{label:string;value:number;min:number;max:number;step:number;on:(v:number)=>void}){
  const [txt,setTxt]=useState(String(value))
  useEffect(()=>{if(+txt!==value)setTxt(String(value))},[value]) // eslint-disable-line
  return <label className="num"><span>{label}</span><input type="number" inputMode="decimal" min={min} max={max} step={step} value={txt} onChange={e=>{setTxt(e.target.value);const v=parseFloat(e.target.value.replace(',','.'));if(v>=min&&v<=max)on(v)}}/></label>}
-function Slider({label,value,min,max,step,k=1,off=0,dmin,dmax,unit,dec=0,fmt,alt,on}:SP){
- const d=value*k+off
- return <label className="f"><span>{label}<b>{fmt?fmt(d):d.toFixed(dec)+' '+unit}{alt&&<small> ({alt})</small>}</b></span><input type="range" min={dmin??min*k+off} max={dmax??max*k+off} step={step} value={d} onChange={e=>on((+e.target.value-off)/k)}/></label>}
+function Slider({label,value,min,max,step,k=1,off=0,dmin,dmax,unit,dec=0,fmt,alt,edit,on}:SP){
+ const d=value*k+off,lo=dmin??min*k+off,hi=dmax??max*k+off,cur=useRef(d),timer=useRef(0),[txt,setTxt]=useState<string|null>(null)
+ cur.current=d
+ const set=(x:number)=>{const c=Math.min(Math.max(x,lo),hi);cur.current=c;on((+c.toFixed(6)-off)/k)}
+ // − / + move one slider step; holding repeats, slowly at first and then faster
+ const stop=()=>clearTimeout(timer.current)
+ useEffect(()=>stop,[])
+ const nudge=(dir:number,hold:boolean)=>{let n=0;const tick=()=>{set(lo+Math.round((cur.current+dir*step-lo)/step)*step);n++
+  if(hold&&cur.current>lo&&cur.current<hi)timer.current=window.setTimeout(tick,n<2?400:n<12?90:35)};tick()}
+ const btn=(dir:number,sign:string)=><button type="button" className="nb" aria-label={sign} disabled={dir<0?d<=lo:d>=hi}
+  onPointerDown={e=>{e.preventDefault();nudge(dir,true)}} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop} onClick={e=>{if(e.detail===0)nudge(dir,false)}}>{sign}</button>
+ const commit=()=>{const v=parseFloat((txt??'').replace(',','.'));if(!isNaN(v))set(v);setTxt(null)}
+ return <div className="f"><span>{label}<b>{edit?<><input className="vin" inputMode="decimal" aria-label={label} value={txt??d.toFixed(dec)}
+   onFocus={e=>{setTxt(d.toFixed(dec));e.target.select()}} onChange={e=>setTxt(e.target.value)} onBlur={commit}
+   onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();if(e.key==='Escape'){setTxt(null);e.currentTarget.blur()}}}/> {unit}</>
+  :fmt?fmt(d):d.toFixed(dec)+' '+unit}{alt&&<small> ({alt})</small>}</b></span>
+  <div className="rg">{btn(-1,'−')}<input type="range" aria-label={label} min={lo} max={hi} step={step} value={d} onChange={e=>on((+e.target.value-off)/k)}/>{btn(1,'+')}</div></div>}
 export function App(){
  const [s,set]=useState<S>(load),[shot,setShot]=useState(0),[reset,setReset]=useState(0)
  const p=(o:Partial<S>)=>set(x=>({...x,...o}))
@@ -50,7 +64,7 @@ export function App(){
  const twist=Math.min(Math.max(s.twist,cal.tw[0]),cal.tw[1])
  const sg=stability(b.gr,cal.d,b.len,twist,s.v0*3.28084,env.temp*1.8+32,env.press)
  // a caliber brings its typical rifle: barrel length and sight height follow it
- const pick=(cid:string)=>{const f=BULLETS.find(x=>x.cal===cid)!,g=GUNS[gunFor(cid)],bl=CALIBERS.find(c=>c.id===cid)!.barrel??g.barrel;p({cal:cid,bullet:f.id,barrel:bl,twist:CALIBERS.find(c=>c.id===cid)!.tw[2],sight:g.sight,v0:vFor(f,bl)});setShot(n=>n+1)}
+ const pick=(cid:string)=>{const f=BULLETS.find(x=>x.cal===cid)!,g=GUNS[gunFor(cid)],c=CALIBERS.find(x=>x.id===cid)!,bl=c.barrel??g.barrel;p({cal:cid,bullet:f.id,barrel:bl,twist:c.tw[2],zero:c.zero??g.zero,sight:g.sight,v0:vFor(f,bl)});setShot(n=>n+1)}
  // the custom bullet starts from the bullet that was selected and keeps the current velocity
  const pickB=(id:string)=>{p(id==='custom'?{bullet:id,cb:s.cb??{gr:b.gr,bc:b.bc,m:b.m,len:b.len}}:{bullet:id,v0:vFor(BULLETS.find(x=>x.id===id)!,s.barrel)});setShot(n=>n+1)}
  const setCb=(o:Partial<CB>)=>p({cb:{...s.cb!,...o}})
@@ -59,6 +73,10 @@ export function App(){
   <aside className={s.open?'side':'side shut'}>
    <div className="mode"><button role="switch" aria-checked={pro} className={pro?'sw pro':'sw'} onClick={()=>p({mode:pro?'lite':'pro'})}><span className={pro?'':'on'}>LITE</span><i/><span className={pro?'on':''}>PRO</span></button></div>
    <h1>BALLISTIC<i>TRAJECTORY</i></h1>
+   <div className="top">
+    <button className={I?'':'on'} onClick={()=>p({imp:false})}>SI</button><button className={I?'on':''} onClick={()=>p({imp:true})}>IMP</button><span/>
+    <button className={s.lang==='uk'?'on':''} onClick={()=>p({lang:'uk'})}>UA</button><button className={s.lang==='en'?'on':''} onClick={()=>p({lang:'en'})}>EN</button>
+   </div>
    <h2>{t('ammo')}</h2>
    <label className="f"><span>{t('caliber')}</span><select value={cal.id} onChange={e=>pick(e.target.value)}>{CALIBERS.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
    <label className="f"><span>{t('bullet')}</span><select value={b.id} onChange={e=>pickB(e.target.value)}><option value="custom">{t('custom')}</option>{list.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
@@ -71,7 +89,7 @@ export function App(){
     </div>
     <p className="note">{t('customNote')}</p>
    </>:<p className="note">{b.gr} gr · {b.m} BC {b.bc} · Ø {cal.d}″<br/>{b.ok?'✓ '+t('okNote'):'⚠ '+t('verify')}</p>}
-   <Slider label={t('velocity')} value={s.v0} min={200} max={1200} step={I?5:1} k={I?3.28084:1} unit={I?'fps':'m/s'} alt={I?s.v0.toFixed(0)+' m/s':(s.v0*3.28084).toFixed(0)+' fps'} on={v=>p({v0:v})}/>
+   <Slider label={t('velocity')} value={s.v0} min={200} max={1200} step={I?5:1} k={I?3.28084:1} unit={I?'fps':'m/s'} edit alt={I?s.v0.toFixed(0)+' m/s':(s.v0*3.28084).toFixed(0)+' fps'} on={v=>p({v0:v})}/>
    <p className="note">{t('vNote')}</p>
    <h2>{t('weapon')}</h2>
    <Slider label={t('barrel')} value={s.barrel} min={6} max={30} step={.25} unit="" fmt={d=>inch(d)} alt={mm(s.barrel*25.4)} on={v=>p({barrel:v,v0:custom?Math.round(s.v0+(v-s.barrel)*cal.kv):vFor(b,v)})}/>
@@ -79,8 +97,8 @@ export function App(){
    <p className={'note '+(sg<1?'bad':sg<1.3?'warn':'ok')}>{t('stable')} Sg {sg.toFixed(2)}{sg<1?' — '+t('unstable'):sg<1.3?' — '+t('marginal'):''}</p>
    {I?<Slider label={t('sight')} value={s.sight} min={20} max={120} step={.05} k={1/25.4} dmin={.8} dmax={4.7} unit="" fmt={d=>inch(d)} alt={mm(s.sight)} on={v=>p({sight:v})}/>
    :<Slider label={t('sight')} value={s.sight} min={20} max={120} step={1} unit="mm" alt={inch(s.sight/25.4)} on={v=>p({sight:v})}/>}
-   {I?<Slider label={t('zero')} value={zero} min={10} max={MAXZERO} step={5} k={1.09361} dmin={10} dmax={325} unit="yd" alt={zero.toFixed(0)+' m'} on={v=>p({zero:v})}/>
-   :<Slider label={t('zero')} value={zero} min={10} max={MAXZERO} step={5} unit="m" alt={(zero*1.09361).toFixed(0)+' yd'} on={v=>p({zero:v})}/>}
+   {I?<Slider label={t('zero')} value={zero} min={10} max={MAXZERO} step={1} k={1.09361} dmin={11} dmax={328} unit="yd" alt={zero.toFixed(0)+' m'} on={v=>p({zero:v})}/>
+   :<Slider label={t('zero')} value={zero} min={10} max={MAXZERO} step={1} unit="m" alt={(zero*1.09361).toFixed(0)+' yd'} on={v=>p({zero:v})}/>}
    {pro?<>
     <h2>{t('cond')}</h2>
     <Slider label={t('temp')} value={s.temp} min={-30} max={45} step={1} k={I?1.8:1} off={I?32:0} unit={I?'°F':'°C'} on={v=>p({temp:v})}/>
@@ -102,9 +120,5 @@ export function App(){
    <button className="btn" onClick={()=>setReset(n=>n+1)}>{t('reset')}</button>
   </aside>
   <button className="burger" onClick={()=>p({open:!s.open})} aria-label={t('menu')}>☰</button>
-  <div className="top">
-   <button className={I?'':'on'} onClick={()=>p({imp:false})}>SI</button><button className={I?'on':''} onClick={()=>p({imp:true})}>IMP</button><span/>
-   <button className={s.lang==='uk'?'on':''} onClick={()=>p({lang:'uk'})}>UA</button><button className={s.lang==='en'?'on':''} onClick={()=>p({lang:'en'})}>EN</button>
-  </div>
   <main>{shown?<Chart res={shown} s={s} t={t} shot={shot} reset={reset} range={shown.range} wall={s.fixOn?fix:null}/>:<p className="err">{t('cant')}</p>}</main>
  </div>}

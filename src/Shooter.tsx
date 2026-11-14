@@ -1,52 +1,77 @@
 // Standing soldier in body armour with a rifle, true size. World units are metres: origin at the muzzle on the line of sight, x towards the target, y up.
 import {GUNS,GunId,Weapon} from './Weapons'
 export const GROUND=-1.67 // eye on the line of sight, ~1.82 m tall person
-const IN=.0254,EYE=8 // eye sits 8 in ahead of the butt plate (cheek weld)
+const IN=.0254,EYE=6 // eye sits 6 in ahead of the butt plate (cheek weld)
 export const buttX=(gun:GunId,barrelIn:number)=>-(GUNS[gun].off+barrelIn)*IN
 export const eyeX=(gun:GunId,barrelIn:number)=>buttX(gun,barrelIn)+EYE*IN
-export const figLeft=(gun:GunId,barrelIn:number)=>buttX(gun,barrelIn)-.42
+export const figLeft=(gun:GunId,barrelIn:number)=>buttX(gun,barrelIn)-.46
 type P=[number,number]
 /** Tapered capsule between two points: a limb segment. */
 function Seg({a,b,wa,wb,cls}:{a:P;b:P;wa:number;wb:number;cls?:string}){
  const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1,nx=-dy/l,ny=dx/l
  const q=(p:P,w:number,s:number)=>`${p[0]+nx*w/2*s},${p[1]+ny*w/2*s}`
  return <g className={cls}><path d={`M${q(a,wa,1)} L${q(b,wb,1)} L${q(b,wb,-1)} L${q(a,wa,-1)} Z`}/><circle cx={a[0]} cy={a[1]} r={wa/2}/><circle cx={b[0]} cy={b[1]} r={wb/2}/></g>}
-function Leg({hip,knee,ankle,toe}:{hip:P;knee:P;ankle:P;toe:number}){
- return <g>
-  <Seg a={hip} b={knee} wa={.18} wb={.13}/><Seg a={knee} b={ankle} wa={.13} wb={.1}/>
-  <ellipse cx={knee[0]+.045} cy={knee[1]} rx={.05} ry={.075} className="gear"/>
-  <path d={`M${ankle[0]-.07},${ankle[1]+.12} L${ankle[0]+.06},${ankle[1]+.12} L${ankle[0]+.07},${GROUND+.06} L${toe},${GROUND+.05} Q${toe+.03},${GROUND} ${toe-.02},${GROUND} L${ankle[0]-.09},${GROUND} Z`} className="boot"/>
+/** Closed smooth outline through the points (Catmull-Rom turned into cubic Béziers). */
+const blob=(q:P[])=>{const n=q.length,at=(i:number)=>q[(i+n)%n]
+ return 'M'+q[0].join(',')+q.map((_,i)=>{const p0=at(i-1),p1=at(i),p2=at(i+1),p3=at(i+2)
+  return `C${p1[0]+(p2[0]-p0[0])/6},${p1[1]+(p2[1]-p0[1])/6} ${p2[0]-(p3[0]-p1[0])/6},${p2[1]-(p3[1]-p1[1])/6} ${p2[0]},${p2[1]}`}).join(' ')+'Z'}
+const Blob=({q,cls}:{q:P[];cls?:string})=><path d={blob(q)} className={cls}/>
+/** Leg in combat trousers with a knee pad, cargo pocket and a high boot; x positions are given relative to the hip. */
+function Leg({hx,kx,ax,toe,back}:{hx:number;kx:number;ax:number;toe:number;back?:boolean}){
+ return <g className={back?'far':undefined}>
+  <Blob q={[[hx-.1,-.8],[hx+.08,-.82],[kx+.075,-1.18],[kx+.06,-1.3],[ax+.055,-1.5],[ax-.055,-1.5],[kx-.065,-1.3],[kx-.075,-1.15]]}/>
+  <rect x={(hx+kx)/2-.02} y={-1.07} width={.08} height={.11} rx={.015} className="pouch"/>
+  <Blob q={[[kx+.045,-1.17],[kx+.095,-1.21],[kx+.09,-1.31],[kx+.045,-1.33],[kx+.03,-1.25]]} cls="gear"/>
+  <path d={`M${ax-.065},-1.47 L${ax+.06},-1.47 L${ax+.07},${GROUND+.07} Q${toe-.02},${GROUND+.07} ${toe},${GROUND+.035} L${toe},${GROUND} L${ax-.085},${GROUND} Z`} className="boot"/>
+  <path d={`M${ax-.085},${GROUND+.012} L${toe},${GROUND+.012}`} className="seam"/>
  </g>}
+/** Gloved hand closed around a grip. */
+const Hand=({c,a}:{c:P;a:number})=><g transform={`translate(${c[0]} ${c[1]}) rotate(${a})`}><rect x={-.045} y={-.03} width={.09} height={.06} rx={.025} className="glove"/><rect x={-.05} y={-.012} width={.03} height={.035} rx={.012} className="glove"/></g>
 export function Shooter({gun,barrelIn,sightM}:{gun:GunId;barrelIn:number;sightM:number}){
  const g=GUNS[gun],b=buttX(gun,barrelIn),E=eyeX(gun,barrelIn),by=-sightM
  const grip:P=[b+g.grip[0]*IN,by+g.grip[1]*IN]
  const sup:P=[Math.min(b+g.fore*IN,b+.58,-.05),by-.035]
- const hip:P=[b-.13,-.8],hx=E-.075,hy=.035
+ const hx=E-.075,hy=.035,R=(x:number,y:number):P=>[b+x,y] // points relative to the butt plate
+ const DX=.08 // body shifted forward under the head so the neck stays upright
  return <g className="man">
-  <Leg hip={hip} knee={[b-.22,-1.21]} ankle={[b-.32,-1.55]} toe={b-.1}/>
-  <Seg a={[b-.06,-.2]} b={[b+.08,-.38]} wa={.11} wb={.095}/>
-  <rect x={b-.37} y={-.5} width={.1} height={.26} rx={.03} className="gear"/>
-  <Seg a={[b-.09,-.24]} b={[b-.13,-.74]} wa={.27} wb={.26}/>
-  <Leg hip={hip} knee={[b-.03,-1.22]} ankle={[b,-1.55]} toe={b+.22}/>
-  <path d={`M${b-.27},-.15 L${b+.07},-.17 L${b+.06},-.62 L${b-.3},-.62 Z`} className="gear"/>
-  <path d={`M${b-.2},-.13 L${b-.02},-.13 L${b-.04},-.2 L${b-.2},-.2 Z`} className="gear"/>
-  <rect x={b+.04} y={-.6} width={.08} height={.17} rx={.015} className="pouch"/>
-  <path d={`M${b+.04},-.47 L${b+.12},-.47 M${b+.04},-.53 L${b+.12},-.53`} className="seam"/>
-  <rect x={b+.04} y={-.38} width={.06} height={.1} rx={.015} className="pouch"/>
-  <rect x={b-.29} y={-.73} width={.33} height={.07} rx={.015} className="gear"/>
-  <rect x={b-.12} y={-.86} width={.09} height={.14} rx={.02} className="pouch"/>
-  <Seg a={[E-.1,-.06]} b={[b-.08,-.17]} wa={.11} wb={.12}/>
-  <g transform={`rotate(-15 ${hx} ${hy})`}>
-   <ellipse cx={hx} cy={hy} rx={.095} ry={.115}/>
-   <path d={`M${hx-.115},${hy-.01} C${hx-.12},${hy+.15} ${hx+.08},${hy+.17} ${hx+.11},${hy+.06} L${hx+.088},${hy+.048} L${hx+.02},${hy+.05} L${hx-.03},${hy} L${hx-.06},${hy-.065} L${hx-.112},${hy-.065} Z`} className="gear"/>
-   <rect x={hx+.075} y={hy+.06} width={.035} height={.03} className="pouch"/>
-   <path d={`M${hx-.09},${hy+.05} L${hx+.05},${hy+.08}`} className="seam"/>
-   <ellipse cx={hx-.015} cy={hy-.025} rx={.038} ry={.048} className="pouch"/>
+  {/* far side: trigger arm, then the body (shifted forward) */}
+  <g className="far"><Seg a={R(-.07+DX,-.2)} b={R(.1,-.42)} wa={.11} wb={.085}/>
+   <Seg a={R(.1,-.42)} b={grip} wa={.09} wb={.065}/></g>
+  <g transform={`translate(${DX} 0)`}>
+  <Leg hx={b-.17} kx={b-.25} ax={b-.35} toe={b-.13} back/>
+  {/* body in combat shirt */}
+  <Blob q={[R(-.04,-.11),R(.05,-.19),R(.07,-.4),R(.04,-.62),R(.04,-.8),R(.05,-.9),R(-.1,-.96),R(-.28,-.9),R(-.29,-.78),R(-.25,-.62),R(-.27,-.36),R(-.22,-.17),R(-.12,-.1)]}/>
+  <Leg hx={b-.08} kx={b+.01} ax={b+.02} toe={b+.25}/>
+  {/* plate carrier: back plate with radio, front plate with pouches, cummerbund, shoulder strap */}
+  <rect x={b-.32} y={-.56} width={.1} height={.38} rx={.03} className="gear"/>
+  <rect x={b-.385} y={-.5} width={.07} height={.26} rx={.02} className="pouch"/><path d={`M${b-.36},-.24 L${b-.385},.14`} className="ant"/>
+  <rect x={b-.27} y={-.6} width={.32} height={.1} rx={.02} className="gear"/>
+  <path d={`M${b-.25},-.2 Q${b-.12},-.08 ${b+.03},-.21`} className="strap"/>
+  <rect x={b+.0} y={-.57} width={.11} height={.39} rx={.035} className="gear"/>
+  {[0,1,2].map(i=><g key={i}><rect x={b+.1} y={-.555+i*.07} width={.055} height={.065} rx={.01} className="pouch"/><path d={`M${b+.1},${-.5+i*.07} L${b+.155},${-.5+i*.07}`} className="seam"/></g>)}
+  <rect x={b+.1} y={-.33} width={.04} height={.09} rx={.01} className="pouch"/>
+  {/* belt with buckle, dump pouch and drop holster */}
+  <rect x={b-.3} y={-.8} width={.36} height={.065} rx={.015} className="gear"/><rect x={b+.0} y={-.795} width={.04} height={.055} rx={.008} className="pouch"/>
+  <rect x={b-.335} y={-.86} width={.08} height={.13} rx={.03} className="pouch"/>
+  <rect x={b-.13} y={-1.04} width={.07} height={.22} rx={.02} className="gear"/><path d={`M${b-.12},-.86 L${b-.07},-.86`} className="seam"/>
   </g>
-  <path d={`M${E+.01},.0 L${E+.035},-.03 L${E+.005},-.045 Z`}/>
-  <Seg a={[b+.08,-.38]} b={grip} wa={.095} wb={.07}/>
+  {/* neck, head, helmet with NVG mount and side rail, headset, glasses */}
+  <Blob q={[R(-.03+DX,-.12),[hx+.02,-.07],[hx-.07,-.02],R(-.12+DX,-.1)]}/>
+  <g transform={`rotate(-15 ${hx} ${hy})`}>
+   <Blob q={[[hx-.09,hy+.06],[hx-.02,hy+.115],[hx+.07,hy+.08],[hx+.095,hy+.01],[hx+.09,hy-.05],[hx+.05,hy-.1],[hx-.01,hy-.115],[hx-.07,hy-.08],[hx-.1,hy-.02]]}/>
+   <path d={`M${hx-.12},${hy-.02} C${hx-.13},${hy+.15} ${hx+.08},${hy+.18} ${hx+.115},${hy+.065} L${hx+.09},${hy+.05} L${hx+.03},${hy+.055} Q${hx-.01},${hy+.03} ${hx-.03},${hy-.01} L${hx-.06},${hy-.07} L${hx-.118},${hy-.07} Z`} className="gear"/>
+   <path d={`M${hx-.085},${hy+.06} Q${hx+.0},${hy+.1} ${hx+.075},${hy+.075}`} className="seam"/>
+   <rect x={hx+.075} y={hy+.06} width={.04} height={.035} rx={.006} className="pouch"/>
+   <ellipse cx={hx-.015} cy={hy-.02} rx={.04} ry={.05} className="pouch"/><path d={`M${hx-.015},${hy+.03} Q${hx-.03},${hy+.08} ${hx-.07},${hy+.075}`} className="seam"/>
+   <path d={`M${hx+.04},${hy+.02} L${hx+.1},${hy+.022} L${hx+.098},${hy-.004} L${hx+.05},${hy-.008} Z`} className="glass"/>
+  </g>
+  <path d={`M${E+.012},.0 L${E+.035},-.032 L${E+.008},-.045 Z`}/>
+  {/* sling from the front sling point round the body */}
+  <path d={`M${sup[0]-.04},${by-.02} Q${b+.12},-.48 ${b-.24+DX},-.2`} className="strap"/>
   <g transform={`translate(${b} ${by}) scale(${IN})`}><Weapon gun={gun} barrelIn={barrelIn} sightIn={sightM/IN}/></g>
-  <circle cx={grip[0]} cy={grip[1]} r={.038} className="glove"/>
-  <Seg a={[b-.02,-.18]} b={[b+.3,-.3]} wa={.11} wb={.095}/><Seg a={[b+.3,-.3]} b={sup} wa={.095} wb={.07}/>
-  <circle cx={sup[0]} cy={sup[1]} r={.038} className="glove"/>
+  <Hand c={grip} a={-75}/>
+  {/* near side: support arm with shoulder and sleeve, gloved hand on the fore-end */}
+  <circle cx={b-.03+DX} cy={-.19} r={.07}/><Seg a={R(-.03+DX,-.19)} b={R(.3,-.3)} wa={.11} wb={.085}/>
+  <Seg a={R(.3,-.3)} b={sup} wa={.085} wb={.065}/>
+  <Hand c={sup} a={-20}/>
  </g>}

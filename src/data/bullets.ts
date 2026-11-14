@@ -1,10 +1,10 @@
 // !! Library values are approximate and MUST be verified against manufacturer data (field "ok": false).
 // d = bullet diameter, inch; ref = test barrel length the bullet velocities are quoted for, inch; kv = velocity change per inch of barrel, m/s
-// barrel = typical barrel length when it differs from the rifle's default, inch; tw = realistic twist range and typical twist [min,max,default], inch per turn
-export interface Caliber{id:string;name:string;d:number;ref:number;kv:number;barrel?:number;tw:[number,number,number]}
+// barrel / zero = typical barrel length (inch) / zero distance (m) when they differ from the rifle's default; tw = realistic twist range and typical twist [min,max,default], inch per turn
+export interface Caliber{id:string;name:string;d:number;ref:number;kv:number;barrel?:number;zero?:number;tw:[number,number,number]}
 export interface Bullet{id:string;cal:string;name:string;gr:number;bc:number;m:'G1'|'G7';len:number;v:number;ok:boolean} // len inch, v m/s at Caliber.ref
 export const CALIBERS:Caliber[]=[
-{id:'22lr',name:'.22 LR',d:.223,ref:18,kv:1.5,barrel:18,tw:[14,18,16]},{id:'223',name:'.223 Rem',d:.224,ref:24,kv:7.5,tw:[6,10,7]},{id:'556',name:'5.56x45 NATO',d:.224,ref:20,kv:7.5,tw:[6,10,7]},
+{id:'22lr',name:'.22 LR',d:.223,ref:18,kv:1.5,barrel:18,zero:25,tw:[14,18,16]},{id:'223',name:'.223 Rem',d:.224,ref:24,kv:7.5,tw:[6,10,7]},{id:'556',name:'5.56x45 NATO',d:.224,ref:20,kv:7.5,tw:[6,10,7]},
 {id:'243',name:'.243 Win',d:.243,ref:24,kv:7.6,tw:[7,10,9]},{id:'65cm',name:'6.5 Creedmoor',d:.264,ref:24,kv:7,tw:[7,9,8]},
 {id:'270',name:'.270 Win',d:.277,ref:24,kv:7.6,tw:[8,11,10]},{id:'7x64',name:'7x64',d:.284,ref:24,kv:7.6,tw:[8,11,10]},{id:'300blk',name:'.300 Blackout',d:.308,ref:16,kv:8,tw:[6,10,8]},{id:'308',name:'.308 Win',d:.308,ref:24,kv:6.5,tw:[8,12,10]},{id:'762x51',name:'7.62x51 NATO',d:.308,ref:22,kv:6.5,tw:[8,12,10]},
 {id:'762x39',name:'7.62x39',d:.311,ref:20,kv:4.5,tw:[9,10,9.5]},{id:'762x54',name:'7.62x54R',d:.311,ref:28,kv:5,tw:[8,12,10]},{id:'3006',name:'.30-06 Spr',d:.308,ref:24,kv:7,tw:[8,12,10]},{id:'300wm',name:'.300 Win Mag',d:.308,ref:24,kv:9,tw:[8,12,10]}]
