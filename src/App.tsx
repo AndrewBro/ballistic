@@ -8,8 +8,8 @@ import {TARGETS,TargetFace} from './Targets'
 // barrel and twist are stored in inches, sight in mm, distances in m
 // custom bullet: what the user types in from the box or the maker's site
 type CB={gr:number;bc:number;m:'G1'|'G7';len:number}
-export interface S{mode:'lite'|'pro';cal:string;bullet:string;v0:number;barrel:number;twist:number;sight:number;zero:number;temp:number;atm:'alt'|'press';alt:number;press:number;wind:number;windDir:number;angle:number;step:number;real:boolean;fixOn:boolean;fixD:number;tgOn:boolean;tg:string;tgD:number;tgAim:'c'|'h';tgFace:boolean;tfB:number;tfW:number;tfR:number;cb:CB|null;lang:Lang;imp:boolean;open:boolean}
-const DEF:S={mode:'lite',cal:'223',bullet:'223-fmj55',v0:vFor(BULLETS.find(b=>b.id==='223-fmj55')!,16),barrel:16,twist:7,sight:65,zero:25,temp:15,atm:'alt',alt:0,press:1013,wind:0,windDir:90,angle:0,step:25,real:false,fixOn:false,fixD:100,tgOn:false,tg:'idpa',tgD:100,tgAim:'c',tgFace:false,tfB:64,tfW:240,tfR:16,cb:null,lang:'uk',imp:false,open:true}
+export interface S{mode:'lite'|'pro';cal:string;bullet:string;v0:number;barrel:number;twist:number;sight:number;zero:number;temp:number;atm:'alt'|'press';alt:number;press:number;wind:number;windDir:number;angle:number;step:number;real:boolean;fixOn:boolean;fixD:number;tgOn:boolean;tg:string;tgD:number;tgAim:'c'|'h';tgFace:boolean;tfOn:boolean;tfB:number;tfW:number;tfR:number;cb:CB|null;lang:Lang;imp:boolean;open:boolean}
+const DEF:S={mode:'lite',cal:'223',bullet:'223-fmj55',v0:vFor(BULLETS.find(b=>b.id==='223-fmj55')!,16),barrel:16,twist:7,sight:65,zero:25,temp:15,atm:'alt',alt:0,press:1013,wind:0,windDir:90,angle:0,step:25,real:false,fixOn:false,fixD:100,tgOn:false,tg:'idpa',tgD:100,tgAim:'c',tgFace:false,tfOn:true,tfB:64,tfW:240,tfR:16,cb:null,lang:'uk',imp:false,open:true}
 const KEY='ballistic4'
 const load=():S=>{try{const v={...DEF,...JSON.parse(localStorage.getItem(KEY)||'{}')};return STEPS.includes(v.step)?v:{...v,step:DEF.step}}catch{return DEF}}
 // Lite mode: standard atmosphere, still air, level shot — conditions that barely affect the result
@@ -127,6 +127,7 @@ export function App(){
    <div className="f row"><span>{t('tgShow')}</span><button role="switch" aria-checked={s.tgOn} aria-label={t('tgShow')} className={s.tgOn?'sw pro':'sw'} onClick={()=>p({tgOn:!s.tgOn,tgD})}><i/></button></div>
    {s.tgOn&&<>
     <label className="f"><span>{t('tgType')}</span><select value={tgt.id} onChange={e=>p({tg:e.target.value})}>{TARGETS.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+    <div className="f row"><span>{t('tgView')}</span><button role="switch" aria-checked={s.tfOn} aria-label={t('tgView')} className={s.tfOn?'sw pro':'sw'} onClick={()=>p({tfOn:!s.tfOn})}><i/></button></div>
     <div className="mode vis"><button role="switch" aria-checked={s.tgFace} className={s.tgFace?'sw pro':'sw'} onClick={()=>p({tgFace:!s.tgFace})}><span className={s.tgFace?'':'on'}>{t('tgSide')}</span><i/><span className={s.tgFace?'on':''}>{t('tgFront')}</span></button></div>
     {tgt.aim.h!==undefined&&<div className="mode vis"><button role="switch" aria-checked={s.tgAim==='h'} className={s.tgAim==='h'?'sw pro':'sw'} onClick={()=>p({tgAim:s.tgAim==='h'?'c':'h'})}><span className={s.tgAim==='h'?'':'on'}>{t('aimC')}</span><i/><span className={s.tgAim==='h'?'on':''}>{t('aimH')}</span></button></div>}
     {I?<Slider label={t('tgD')} value={tgD} min={5} max={tgMax} step={1} k={1.09361} dmin={6} dmax={Math.floor(tgMax*1.09361)} unit="yd" alt={tgD.toFixed(0)+' m'} on={v=>p({tgD:v})}/>

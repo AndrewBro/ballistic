@@ -11,7 +11,7 @@ import type {Key} from './i18n'
 interface View{z:number;cx:number;cy:number}
 const NICE=[.01,.02,.05,.1,.2,.5,1,2,5,10,20,50,100,200]
 export interface Tgt{t:Target;d:number;aim:'c'|'h';face:boolean} // face: turned to the viewer instead of side-on
-export function Chart({res,s,t,shot,reset,range,wall,target,onTarget,onFace}:{res:Result;s:S;t:(k:Key)=>string;shot:number;reset:number;range:number;wall:number|null;target:Tgt|null;onTarget:(d:number)=>void;onFace:(o:{tfB?:number;tfW?:number;tfR?:number})=>void}){
+export function Chart({res,s,t,shot,reset,range,wall,target,onTarget,onFace}:{res:Result;s:S;t:(k:Key)=>string;shot:number;reset:number;range:number;wall:number|null;target:Tgt|null;onTarget:(d:number)=>void;onFace:(o:{tfB?:number;tfW?:number;tfR?:number;tfOn?:boolean})=>void}){
  const box=useRef<HTMLDivElement>(null)
  const [sz,setSz]=useState({w:900,h:600}),[view,setView]=useState<View|null>(null),[mx,setMx]=useState<number|null>(null),[my,setMy]=useState(0),[prog,setProg]=useState(0)
  const drag=useRef<{x:number;y:number;v:View}|null>(null),svg=useRef<SVGSVGElement>(null),wheel=useRef<(e:WheelEvent)=>void>(()=>{})
@@ -130,16 +130,19 @@ export function Chart({res,s,t,shot,reset,range,wall,target,onTarget,onFace}:{re
   {ky/kx>1.05&&<text x={s.open?pl:64} y={29} className="lb cmp">{t('squeeze')} ×{(ky/kx).toFixed(ky/kx<10?1:0)}</text>}
  </svg>
  {/* hidden when the chart is too narrow for it (a phone with the menu open) */}
- {tg&&w>=200&&(()=>{const {tt,ay,q,zone}=tg,m=Math.max(tt.w,tt.h)*.12,ix=q?q.z:0,iy=q?ay+q.h:0
+ {tg&&s.tfOn&&w>=200&&(()=>{const {tt,ay,q,zone}=tg,m=Math.max(tt.w,tt.h)*.12,ix=q?q.z:0,iy=q?ay+q.h:0
   const x0=Math.min(-tt.w/2,ix)-m,x1=Math.max(tt.w/2,ix)+m,y0=Math.min(-.03,iy)-m,y1=Math.max(tt.h+.03,iy)+m,u=Math.max(tt.w,tt.h)
   return <div className="tface" style={{bottom:fBot,right:fRt,width:fWid}} onPointerDown={faceDrag('move')} onPointerEnter={()=>setMx(null)}><div className="tfg" onPointerDown={faceDrag('size')}/>
    <div className="tfh">{t('tgView')} · {tt.name}</div>
+   <button className="tfx" aria-label={t('close')} title={t('close')} onPointerDown={e=>e.stopPropagation()} onClick={()=>onFace({tfOn:false})}>×</button>
    <svg style={{height:fWid*.66}} viewBox={`${x0} ${-y1} ${x1-x0} ${y1-y0}`} preserveAspectRatio="xMidYMid meet"><g transform="scale(1 -1)">
     <TargetFace t={tt}/>
     <path d={`M${-u*.05},${ay} L${u*.05},${ay} M0,${ay-u*.05} L0,${ay+u*.05}`} className="aimx" strokeWidth={u*.008}/>
     {q&&prog>=1&&<circle cx={ix} cy={iy} r={u*.022} fill="url(#gold)" stroke="#000" strokeWidth={u*.004}/>}
    </g></svg>
    <div className="tfr">{!q?'—':prog<1?'…':zone?<b className="ok">{t('hitL')}{zone==='hit'?'':' '+zone}</b>:<b className="no">{t('miss')}</b>}
-    {q&&<span>{q.h>=0?'+':''}{(q.h*kh).toFixed(1)} {uh} · {(tg.d*kd).toFixed(0)} {ud}</span>}</div></div>})()}
+    {q&&<span>{q.h>=0?'+':''}{(q.h*kh).toFixed(1)} {uh} · {(tg.d*kd).toFixed(0)} {ud}</span>}</div>
+   {/* Pro: sideways wind drift at the target, arrow shows the direction as the shooter sees it */}
+   {q&&s.mode==='pro'&&Math.abs(q.z)>=.0005&&<div className="tfr"><span className="lbl">{t('drift')}</span><span>{q.z<0?'← ':''}{(Math.abs(q.z)*kh).toFixed(1)} {uh}{q.z>0?' →':''}</span></div>}</div>})()}
  {rp&&<div className="tip" style={{left:tl,top:tt}}><div><span>{t('dist')}</span>{(rp.s*kd).toFixed(0)} {ud}</div><div><span>{t('h')}</span>{rp.h>=0?'+':''}{(rp.h*kh).toFixed(1)} {uh}</div><div><span>{t('spd')}</span>{(rp.v*(s.imp?3.28084:1)).toFixed(0)} {s.imp?'fps':'m/s'}</div><div><span>{t('time')}</span>{rp.t.toFixed(2)} s</div>{s.mode==='pro'&&<div><span>{t('drift')}</span>{(rp.z*kh).toFixed(1)} {uh}</div>}</div>}
  </div>}

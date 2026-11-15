@@ -48,9 +48,10 @@ main{flex:1;min-width:0}.chart{width:100%;height:100%;position:relative;overflow
 /* target: side view on the chart and the face-on panel */
 .tside .stand{stroke:#56606b;stroke-width:2}.tside .board{fill:#8b7a5a;stroke:#2b2418;stroke-width:.5}.tside .board.army{fill:#d8d6cc}.tside .board.steel{fill:#9aa6b2}
 .tface{position:absolute;z-index:3;cursor:move;touch-action:none;user-select:none;-webkit-user-select:none;background:#10161dee;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:11px 'JetBrains Mono',monospace;color:var(--mut)}
-.tface svg{display:block;width:100%;margin:6px 0}.tfh{color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 0 2px 14px}
+.tface svg{display:block;width:100%;margin:6px 0}.tfh{color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 22px 2px 14px}
 .tfg{position:absolute;left:-1px;top:-1px;width:14px;height:14px;pointer-events:auto;cursor:nwse-resize;touch-action:none;border-left:2px solid var(--mut);border-top:2px solid var(--mut);border-top-left-radius:6px}.tfg:hover{border-color:var(--acc)}
-.tfr{display:flex;justify-content:space-between;gap:8px}.tfr .ok{color:var(--grn)}.tfr .no{color:var(--red)}.tfr span{color:var(--tx)}
+.tfx{position:absolute;right:4px;top:3px;width:22px;height:22px;padding:0;border:0;border-radius:4px;background:none;color:var(--mut);font:16px/1 sans-serif;cursor:pointer}.tfx:hover{color:var(--tx);background:#ffffff14}
+.tfr{display:flex;justify-content:space-between;gap:8px}.tfr .ok{color:var(--grn)}.tfr .no{color:var(--red)}.tfr span{color:var(--tx)}.tfr span.lbl{color:var(--mut)}
 .tgt .body{fill:#8b7a5a}.tgt .zone{fill:none;stroke:#2b2418;stroke-width:.004}.tgt.army .sheet{fill:#d8d6cc}.tgt.army .body{fill:#2f3a2c}.tgt.steel .body{fill:#9aa6b2;stroke:#5d6773;stroke-width:.006}
 .aimx{stroke:var(--red);fill:none}
 /* target icon button (top right) opens the target panel */
