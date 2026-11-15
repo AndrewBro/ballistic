@@ -4,7 +4,7 @@
 export interface Caliber{id:string;name:string;d:number;ref:number;kv:number;barrel?:number;zero?:number;tw:[number,number,number]}
 export interface Bullet{id:string;cal:string;name:string;gr:number;bc:number;m:'G1'|'G7';len:number;v:number;ok:boolean} // len inch, v m/s at Caliber.ref
 export const CALIBERS:Caliber[]=[
-{id:'22lr',name:'.22 LR',d:.223,ref:18,kv:1.5,barrel:18,zero:25,tw:[14,18,16]},{id:'223',name:'.223 Rem',d:.224,ref:24,kv:7.5,tw:[6,10,7]},{id:'556',name:'5.56x45 NATO',d:.224,ref:20,kv:7.5,tw:[6,10,7]},
+{id:'22lr',name:'.22 LR',d:.223,ref:18,kv:1.5,barrel:18,zero:25,tw:[14,18,16]},{id:'223',name:'.223 Rem',d:.224,ref:24,kv:7.5,tw:[6,10,7]},{id:'556',name:'5.56x45 NATO',d:.224,ref:20,kv:7.5,tw:[6,10,7]},{id:'545',name:'5.45x39',d:.221,ref:16.3,kv:7,tw:[7,10,8]},
 {id:'243',name:'.243 Win',d:.243,ref:24,kv:7.6,tw:[7,10,9]},{id:'65cm',name:'6.5 Creedmoor',d:.264,ref:24,kv:7,tw:[7,9,8]},
 {id:'270',name:'.270 Win',d:.277,ref:24,kv:7.6,tw:[8,11,10]},{id:'7x64',name:'7x64',d:.284,ref:24,kv:7.6,tw:[8,11,10]},{id:'300blk',name:'.300 Blackout',d:.308,ref:16,kv:8,tw:[6,10,8]},{id:'308',name:'.308 Win',d:.308,ref:24,kv:6.5,tw:[8,12,10]},{id:'762x51',name:'7.62x51 NATO',d:.308,ref:22,kv:6.5,tw:[8,12,10]},
 {id:'762x39',name:'7.62x39',d:.311,ref:20,kv:4.5,tw:[9,10,9.5]},{id:'762x54',name:'7.62x54R',d:.311,ref:28,kv:5,tw:[8,12,10]},{id:'3006',name:'.30-06 Spr',d:.308,ref:24,kv:7,tw:[8,12,10]},{id:'300wm',name:'.300 Win Mag',d:.308,ref:24,kv:9,tw:[8,12,10]}]
@@ -29,6 +29,8 @@ B('65-eldm140','65cm','Hornady ELD-M 140 gr',140,.326,'G7',1.37,825,Y),B('65-eld
 B('270-sst130','270','Hornady SST 130 gr',130,.46,'G1',1.2,930,Y),B('270-pt150','270','Nosler Partition 150 gr',150,.465,'G1',1.3,860,Y),
 B('7x64-sst139','7x64','Hornady SST 139 gr',139,.486,'G1',1.2,880,Y),B('7x64-sst154','7x64','Hornady SST 154 gr',154,.525,'G1',1.3,820,Y),
 B('308-sst150','308','Hornady SST 150 gr',150,.415,'G1',1.1,850,Y),B('308-smk168','308','Sierra MatchKing 168 gr',168,.218,'G7',1.22,790,Y),B('308-smk175','308','Sierra MatchKing 175 gr',175,.243,'G7',1.24,790,Y),
+B('545-7n6','545','7N6 53 gr PS',53,.168,'G7',1.0,880,Y),B('545-7n10','545','7N10 56 gr PP',56,.176,'G7',1.0,880),
+B('545-vmax60','545','Hornady Black 60 gr V-MAX',60,.285,'G1',.84,856,Y),B('545-wolf60','545','Wolf 60 gr FMJ',60,.33,'G1',.86,895),
 B('762x39-sp124','762x39','S&B SP 124 gr',124,.238,'G1',.95,743,Y),
 B('54r-7n1','762x54','7N1 sniper 152 gr',152,.411,'G1',1.3,850),
 B('3006-sst150','3006','Hornady SST 150 gr',150,.415,'G1',1.1,890,Y),B('3006-pt180','3006','Nosler Partition 180 gr',180,.474,'G1',1.3,790,Y),
