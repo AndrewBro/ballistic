@@ -1,10 +1,12 @@
 import {useEffect,useMemo,useRef,useState} from 'react'
-import {solve,pressureFromAlt,stability,ptAt} from './core/ballistics'
-import {CALIBERS,BULLETS,vFor,Bullet} from './data/bullets'
+import {solve,pressureFromAlt,stability,ptAt} from '../core/ballistics'
+import {CALIBERS,BULLETS,vFor,Bullet} from '../core/bullets'
 import {dict,Key,Lang} from './i18n'
 import {Chart} from './Chart'
-import {GUNS,gunFor} from './Weapons'
-import {TARGETS,TargetFace} from './Targets'
+import {Donate} from './Donate'
+import {GUNS,gunFor} from '../core/guns'
+import {TARGETS} from '../core/targets'
+import {TargetFace} from '../core/draw/TargetFace'
 // barrel and twist are stored in inches, sight in mm, distances in m
 // custom bullet: what the user types in from the box or the maker's site
 type CB={gr:number;bc:number;m:'G1'|'G7';len:number}
@@ -39,7 +41,7 @@ function Slider({label,value,min,max,step,k=1,off=0,dmin,dmax,unit,dec=0,fmt,alt
   :fmt?fmt(d):d.toFixed(dec)+' '+unit}{alt&&<small> ({alt})</small>}</b></span>
   <div className="rg">{btn(-1,'−')}<input type="range" aria-label={label} min={lo} max={hi} step={step} value={d} onChange={e=>on((+e.target.value-off)/k)}/>{btn(1,'+')}</div></div>}
 export function App(){
- const [s,set]=useState<S>(load),[shot,setShot]=useState(0),[reset,setReset]=useState(0),[panel,setPanel]=useState<'main'|'target'>('main')
+ const [s,set]=useState<S>(load),[shot,setShot]=useState(0),[reset,setReset]=useState(0),[panel,setPanel]=useState<'main'|'target'>('main'),[donate,setDonate]=useState(false)
  const p=(o:Partial<S>)=>set(x=>({...x,...o}))
  useEffect(()=>{localStorage.setItem(KEY,JSON.stringify(s))},[s])
  const t=(k:Key)=>dict[s.lang][k],I=s.imp,pro=s.mode==='pro'
@@ -135,11 +137,14 @@ export function App(){
     <p className="note">{t('tgNote')}</p>
    </>}
    </>}
-   <div className="shotbar"><button className="btn fire" onClick={()=>setShot(n=>n+1)}>{t('replay')}</button></div>
+   <div className="shotbar"><button className="btn fire" onClick={()=>setShot(n=>n+1)}>{t('replay')}</button>
+    <button className="lnk heart" onClick={()=>setDonate(true)}>♥ {t('support')}</button></div>
   </aside>
+  {donate&&<Donate t={t} onClose={()=>setDonate(false)}/>}
   <button className="burger" onClick={()=>p({open:!s.open})} aria-label={t('menu')}>☰</button>
   {/* small IDPA target: opens the target settings in place of the main menu (and shows the target) */}
   <button className={'tgbtn'+(panel==='target'&&s.open?' on':'')} aria-label={t('target')} title={t('target')} onClick={()=>{if(panel==='target'&&s.open)setPanel('main');else{setPanel('target');p({open:true,tgOn:true})}}}>
    <svg viewBox="-.26 -.04 .52 .84" width="18" height="29"><g transform="scale(1 -1) translate(0 -.762)"><TargetFace t={TARGETS[0]}/></g></svg></button>
-  <main>{shown?<Chart res={shown} s={s} t={t} shot={shot} reset={reset} range={shown.range} wall={s.fixOn?fix:null} target={s.tgOn?{t:tgt,d:tgD,aim:tgt.aim.h!==undefined&&s.tgAim==='h'?'h':'c',face:s.tgFace}:null} onTarget={d=>p({tgD:Math.round(Math.min(Math.max(d,5),tgMax))})} onFace={o=>p(o)}/>:<p className="err">{t('cant')}</p>}</main>
+  {/* on phones the open menu covers most of the screen: a tap on the chart closes it */}
+  <main onPointerDownCapture={()=>{if(s.open&&window.innerWidth<=760)p({open:false})}}>{shown?<Chart res={shown} s={s} t={t} shot={shot} reset={reset} range={shown.range} wall={s.fixOn?fix:null} target={s.tgOn?{t:tgt,d:tgD,aim:tgt.aim.h!==undefined&&s.tgAim==='h'?'h':'c',face:s.tgFace}:null} onTarget={d=>p({tgD:Math.round(Math.min(Math.max(d,5),tgMax))})} onFace={o=>p(o)}/>:<p className="err">{t('cant')}</p>}</main>
  </div>}

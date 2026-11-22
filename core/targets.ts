@@ -1,7 +1,7 @@
 // Standard targets, face-on, in metres: origin at the bottom centre of the target, x to the shooter's right, y up.
 // !! Zone sizes are approximate (prototype) and must be checked against the official drawings.
-type Shape={t:'c';cx:number;cy:number;r:number}|{t:'e';cx:number;cy:number;rx:number;ry:number}|{t:'r';x:number;y:number;w:number;h:number}|{t:'p';q:[number,number][]}
-interface Zone{name:string;s:Shape[]} // a point is in the zone if it is in any of its shapes
+export type Shape={t:'c';cx:number;cy:number;r:number}|{t:'e';cx:number;cy:number;rx:number;ry:number}|{t:'r';x:number;y:number;w:number;h:number}|{t:'p';q:[number,number][]}
+export interface Zone{name:string;s:Shape[]} // a point is in the zone if it is in any of its shapes
 export interface Target{id:string;name:string;w:number;h:number;look:'card'|'army'|'steel';outline:Shape[];zones:Zone[];aim:{c:number;h?:number}} // zones: innermost first; aim: heights of the centre / head aim points
 const P=(...q:number[]):Shape=>({t:'p',q:q.reduce<[number,number][]>((a,v,i)=>(i%2?a[a.length-1].push(v):a.push([v] as any),a),[])})
 const IDPA_BODY=P(-.2286,0,.2286,0,.2286,.52,.1143,.6096,.0762,.6096,.0762,.762,-.0762,.762,-.0762,.6096,-.1143,.6096,-.2286,.52)
@@ -28,12 +28,3 @@ const inShape=(s:Shape,x:number,y:number)=>{
  let c=false;for(let i=0,j=s.q.length-1;i<s.q.length;j=i++){const [xi,yi]=s.q[i],[xj,yj]=s.q[j];if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c}return c}
 /** Zone hit at (x,y) on the target: a zone name, 'hit' for targets without zones, or null for a miss. */
 export const zoneAt=(t:Target,x:number,y:number)=>{if(!t.outline.some(s=>inShape(s,x,y)))return null;return t.zones.find(z=>z.s.some(s=>inShape(s,x,y)))?.name??'hit'}
-const draw=(s:Shape,cls:string,k:number)=>s.t==='c'?<circle key={k} cx={s.cx} cy={s.cy} r={s.r} className={cls}/>:s.t==='e'?<ellipse key={k} cx={s.cx} cy={s.cy} rx={s.rx} ry={s.ry} className={cls}/>
- :s.t==='r'?<rect key={k} x={s.x} y={s.y} width={s.w} height={s.h} className={cls}/>:<polygon key={k} points={s.q.map(p=>p.join(',')).join(' ')} className={cls}/>
-/** Target face (y up, metres). Army silhouettes sit on a white sheet. */
-export function TargetFace({t}:{t:Target}){
- return <g className={'tgt '+t.look}>
-  {t.look==='army'&&<rect x={-t.w/2-.03} y={-.03} width={t.w+.06} height={t.h+.06} className="sheet"/>}
-  {t.outline.map((s,i)=>draw(s,'body',i))}
-  {[...t.zones].reverse().map((z,i)=>z.s.map((s,j)=>draw(s,'zone',i*10+j)))}
- </g>}

@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest'
 import {solve,stability} from './ballistics'
-import {CALIBERS,BULLETS,vFor} from '../data/bullets'
+import {CALIBERS,BULLETS,vFor} from './bullets'
 const base={v0:790,bc:.243,model:'G7' as const,sightH:.045,zero:100,tempC:15,pressHpa:1013.25,windMs:0,windDeg:90,angleDeg:0,range:600}
 describe('ballistics',()=>{
  it('crosses line of sight at the zero distance',()=>{const r=solve(base)!;expect(r.crossings.some(c=>Math.abs(c-100)<1)).toBe(true)})

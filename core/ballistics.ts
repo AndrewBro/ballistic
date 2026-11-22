@@ -1,4 +1,4 @@
-import {G1,G7} from '../data/drag'
+import {G1,G7} from './drag'
 export interface Inputs{v0:number;bc:number;model:'G1'|'G7';sightH:number;zero:number;tempC:number;pressHpa:number;windMs:number;windDeg:number;angleDeg:number;range:number}
 export interface Pt{s:number;h:number;z:number;v:number;t:number} // s: distance along line of sight (m), h: height above LoS (m), z: lateral drift (+right)
 export interface Result{pts:Pt[];crossings:number[];apex:Pt;elev:number}

@@ -1,8 +1,9 @@
 import {useEffect,useRef,useState} from 'react'
-import {Result,ptAt} from './core/ballistics'
-import {Shooter,GROUND,eyeX,figLeft} from './Shooter'
-import {gunFor} from './Weapons'
-import {Target,TargetFace,zoneAt} from './Targets'
+import {Result,ptAt} from '../core/ballistics'
+import {Shooter,GROUND,eyeX,figLeft} from '../core/draw/Shooter'
+import {gunFor} from '../core/guns'
+import {Target,zoneAt} from '../core/targets'
+import {TargetFace} from '../core/draw/TargetFace'
 import type {S} from './App'
 import type {Key} from './i18n'
 // Heights always share one scale with the shooter (ky, px per metre). Realistic view: distance uses the same scale (kx = ky).

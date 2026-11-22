@@ -31,7 +31,7 @@ main{flex:1;min-width:0}.chart{width:100%;height:100%;position:relative;overflow
 .cur{stroke:#ffffff22}.dh{stroke:var(--grn);stroke-width:2}
 .lb{font:11px 'JetBrains Mono',monospace;fill:var(--mut)}.zt{text-anchor:middle;fill:var(--red)}.lb.vl text{text-anchor:start}.lb.vl text.ve{text-anchor:end}.at{text-anchor:middle;fill:var(--grn)}.tk{text-anchor:middle}.tr{text-anchor:end}
 .tip{position:absolute;width:190px;box-sizing:border-box;background:#10161dee;border:1px solid var(--line);border-radius:6px;padding:10px 14px;font:12px 'JetBrains Mono',monospace;pointer-events:none}.tip div{display:flex;justify-content:space-between;gap:22px;line-height:1.7}.tip span{color:var(--mut)}
-.man{fill:#5f7286;stroke:none}.man .gear{fill:#4a5a6b}.man .pouch{fill:#55677a}.man .boot,.man .glove{fill:#3f4d5c}.man .seam{fill:none;stroke:#3b4856;stroke-width:.006}.man .far{filter:brightness(.82)}.man .strap{fill:none;stroke:#3f4d5c;stroke-width:.03;stroke-linecap:round}.man .ant{fill:none;stroke:#3f4d5c;stroke-width:.008;stroke-linecap:round}.man .glass{fill:#1c242d}
+.man{fill:#5f7286;stroke:none}.man .gear{fill:#4a5a6b}.man .pouch{fill:#55677a}.man .boot,.man .glove{fill:#3f4d5c}.man .seam{fill:none;stroke:#3b4856;stroke-width:.006}.man .far{filter:brightness(.82)}.man .strap{fill:none;stroke:#3f4d5c;stroke-width:.03;stroke-linecap:round}.man .ant{fill:none;stroke:#3f4d5c;stroke-width:.008;stroke-linecap:round}.man .glass{fill:#1c242d}.man .flagB{fill:#0057b7}.man .flagY{fill:#ffd700}
 .ar{fill:#1c242d;stroke:#93a4b8;stroke-width:.06;stroke-linejoin:round}.ar .pad{fill:#2b3540}.ar .det{fill:#11171d;stroke-width:.04}.ar .ln{fill:none;stroke-width:.12;stroke-linecap:round}
 .mode{display:flex;justify-content:flex-end;height:30px;margin:-8px -4px 0}
 /* the menu's top row (burger + Lite/Pro) stays put while the menu scrolls under it */
@@ -58,3 +58,9 @@ main{flex:1;min-width:0}.chart{width:100%;height:100%;position:relative;overflow
 .tgbtn{position:fixed;right:14px;top:10px;z-index:5;width:34px;height:40px;display:grid;place-items:center;background:var(--panel);border:1px solid var(--line);border-radius:4px;cursor:pointer;padding:0}
 .tgbtn .tgt .body{fill:#e8edf2}.tgbtn .tgt .zone{stroke:#9aa6b2;stroke-width:.012}.tgbtn:hover,.tgbtn.on{border-color:var(--acc)}.tgbtn.on .tgt .body{fill:var(--acc)}
 .lnk.back{margin:0;font-size:12px}
+/* support the project: link under the Fire button and the donation window */
+.lnk.heart{display:block;margin:10px auto 0;color:var(--mut)}.lnk.heart:hover{color:#ef7a9a}
+.modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:16px;background:#0008}
+.mbox{position:relative;width:min(340px,100%);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px 20px 20px;text-align:center}
+.mbox h3{margin:0 0 10px;font-size:15px;color:var(--tx)}.mbox p{font-size:13px;line-height:1.5;color:var(--tx);margin:0 0 14px}.mbox .note{color:var(--mut);margin:8px 0 14px}
+.mbox .qr{display:block;margin:0 auto;border-radius:6px;max-width:100%;height:auto}.mbox a.btn{display:block;text-decoration:none;box-sizing:border-box}
