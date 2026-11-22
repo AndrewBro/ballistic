@@ -29,12 +29,15 @@ function Leg({hx,kx,ax,toe,back}:{hx:number;kx:number;ax:number;toe:number;back?
   <k.Path d={`M${ax-.065},-1.47 L${ax+.06},-1.47 L${ax+.07},${GROUND+.07} Q${toe-.02},${GROUND+.07} ${toe},${GROUND+.035} L${toe},${GROUND} L${ax-.085},${GROUND} Z`} {...k.st('man.boot')}/>
   <k.Path d={`M${ax-.085},${GROUND+.012} L${toe},${GROUND+.012}`} {...k.st('man.seam')}/>
  </k.G>}
-/** Ukrainian flag patch (8 × 5 cm) on the upper arm, a quarter of the way from the shoulder, along the sleeve. */
+/**
+ * Ukrainian flag chevron (7 × 4.4 cm) sewn high on the sleeve, just below the shoulder: level when the arm hangs down, so it turns with the arm.
+ * Its long side lies across the sleeve and the blue half faces the shoulder.
+ */
 function FlagPatch({a,b}:{a:P;b:P}){
- const k=useKit(),deg=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI,c:P=[a[0]+(b[0]-a[0])*.28,a[1]+(b[1]-a[1])*.28]
+ const k=useKit(),deg=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI+90,c:P=[a[0]+(b[0]-a[0])*.14,a[1]+(b[1]-a[1])*.14]
  return <k.G transform={`translate(${c[0]} ${c[1]}) rotate(${deg})`}>
-  <k.Rect x={-.04} y={0} width={.08} height={.025} {...k.st('man.flagB')}/>
-  <k.Rect x={-.04} y={-.025} width={.08} height={.025} {...k.st('man.flagY')}/>
+  <k.Rect x={-.035} y={0} width={.07} height={.022} {...k.st('man.flagB')}/>
+  <k.Rect x={-.035} y={-.022} width={.07} height={.022} {...k.st('man.flagY')}/>
  </k.G>}
 /** Gloved hand closed around a grip. */
 const Hand=({c,a}:{c:P;a:number})=>{const k=useKit();return <k.G transform={`translate(${c[0]} ${c[1]}) rotate(${a})`}><k.Rect x={-.045} y={-.03} width={.09} height={.06} rx={.025} {...k.st('man.glove')}/><k.Rect x={-.05} y={-.012} width={.03} height={.035} rx={.012} {...k.st('man.glove')}/></k.G>}
